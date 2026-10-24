@@ -4,3 +4,5 @@ uvicorn[standard]
 pytest
 httpx
 -r ../simulation/requirements.txt
+
+pyserial==3.5

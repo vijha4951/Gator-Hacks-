@@ -1,9 +1,16 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import analyze
+from app.routers import analyze, hardware
 
-app = FastAPI(title="CircuitGuard AI")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    hardware.arduino.close()
+
+
+app = FastAPI(title="CircuitGuard AI", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -12,6 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(analyze.router)
+app.include_router(hardware.router)
 
 
 @app.get("/health")

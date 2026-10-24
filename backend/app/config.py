@@ -5,6 +5,7 @@ from app.services.simulator import MockSimulator, PhysBoxSimulator, Simulator
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
 
+    arduino_port: str | None = None  # e.g. /dev/cu.usbmodem11201 or COM3
     simulator: str = "mock"  # set SIMULATOR=physbox in .env when ready
     cors_origins: list[str] = ["http://localhost:5173"]  # Vite default
 
