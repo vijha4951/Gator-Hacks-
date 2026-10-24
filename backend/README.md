@@ -44,12 +44,44 @@ Keys:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `SIMULATOR` | `mock` | `mock` uses Ohm's-law math. `physbox` is the real simulator (not implemented yet). |
+| `SIMULATOR` | `physbox` | `physbox` builds and runs the LED circuit in Volt. Set `mock` for the offline Ohm's-law estimate. |
 | `GEMINI_API_KEY` | _(unset)_ | Optional. If set, explanations are written by Gemini. If unset, a built-in rule-based sentence is used instead. |
 | `GEMINI_MODEL` | `gemini-3.5-flash` | Optional override for the model name. |
+| `PHYSBOX_MCP_COMMAND` | Installed launcher, otherwise current Python | Optional executable override for starting PhysBox MCP. |
+| `PHYSBOX_MCP_ARGS` | `--stdio` (launcher) or `-m physbox_mcp.server --stdio` (Python) | Arguments passed to PhysBox MCP. |
 
 The `.env` file is found whether it sits in `backend/` or at the repo root, so the
 app works no matter which folder you launch it from.
+
+### Connect FastAPI to PhysBox
+
+Install the PhysBox companion executable in the same environment used to run
+FastAPI, open Volt in a browser, and keep the local PhysBox relay available:
+
+```powershell
+pip install physbox-mcp
+```
+
+FastAPI starts its own PhysBox MCP stdio client on application startup. This
+is separate from the coding assistant's MCP connection, but both can use the
+same local relay and open Volt tab. Check the app-owned connection (and make a
+read-only Volt state request) at:
+
+```
+http://127.0.0.1:8000/api/physbox/status
+```
+
+A successful response includes `connected: true`, `volt_reachable: true`, the
+advertised circuit tool names, and the state returned by `circuit_get_state`.
+The endpoint returns HTTP 503 with a useful error if the MCP server or Volt
+tab cannot be reached.
+
+`POST /api/analyze` now builds a voltage source → optional resistor → LED →
+ground circuit from the request, validates it, runs Volt, and reads the LED's
+`current_array` from the returned component state. Volt reports that array in
+amperes; the API converts its final transient sample to milliamps. Requests are
+serialized because Volt has one shared active circuit. The current-circuit
+definition is replaced by each analyze request.
 
 ## Run the server
 
@@ -106,9 +138,11 @@ The tests run offline and do not make real network or AI calls.
 
 ## Notes and current limitations
 
-- **Mock simulator today.** Current is computed with Ohm's law, not a real circuit
-  simulation. The real `PhysBoxSimulator` (driving the PhysBox `circuit_*` MCP
-  tools) is stubbed out and not implemented yet.
+- `SIMULATOR=mock` computes current with Ohm's law. It is for offline development
+  and must not be described as a PhysBox simulation.
+- `SIMULATOR=physbox` replaces the active Volt schematic with the request's LED
+  circuit, runs SPICE, and reads the simulated LED current. Keep the Volt tab
+  open and connected to the PhysBox relay.
 - **No frontend yet.** The server allows a web page served from
   `http://localhost:5173` (the Vite default) to call it, but that page doesn't
   exist in this repo. Use the `/docs` page or curl in the meantime.
