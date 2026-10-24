@@ -5,5 +5,5 @@ pytest==9.1.1
 pytest-asyncio==1.4.0
 httpx==0.28.1
 google-genai==2.33.0
-mcp>=2.3.0
-physbox-mcp
+mcp==2.3.0
+physbox-mcp==0.44.1
