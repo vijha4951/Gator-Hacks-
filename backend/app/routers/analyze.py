@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.config import get_simulator
 from app.schemas import AnalyzeResponse, CircuitRequest
 from app.services.analysis import analyze_circuit
@@ -8,8 +8,9 @@ router = APIRouter(prefix="/api")
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
-async def analyze(req: CircuitRequest, sim: Simulator = Depends(get_simulator)):
+async def analyze(req: CircuitRequest, request: Request, sim: Simulator = Depends(get_simulator)):
     try:
-        return await analyze_circuit(req, sim)
+        async with request.app.state.circuit_analysis_lock:
+            return await analyze_circuit(req, sim)
     except SimulationError as e:
         raise HTTPException(status_code=502, detail=f"Simulation failed: {e}")
