@@ -13,14 +13,14 @@ class CircuitRequest(BaseModel):
 
 class Scenario(BaseModel):
     resistance: float
-    current_ma: float
+    current_ma: float | None = Field(description="Simulated current in mA; null when no reliable measurement is available")
     status: Status
 
 
 class AnalyzeResponse(BaseModel): # this is what the frontend gets back after backend does its thing
-    # Fields from the original contract (unchanged, so the frontend works)
+    # Current may be null; clients must show unavailable, never coerce null to zero.
     status: Status
-    current_ma: float
+    current_ma: float | None = Field(description="Simulated current in mA; null when no reliable measurement is available")
     warnings: list[str]
     recommendation: str
     # Additions for before/after + provenance

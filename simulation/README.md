@@ -52,8 +52,13 @@ and a separately labeled simplified estimate using a fixed 2 V LED drop.
 The LED model remains the same red LED; this estimate does not change its model.
 At 5 V and 330 ohms, the estimate is 9.09 mA; the actual simulation may differ.
 
-Inputs must be finite positive numbers. Zero or negative resistance, NaN, and
-infinity are rejected before connecting to Volt. Missing-resistor cases require
-separate simulation handling and are not supported by this demo yet.
-Run one request at a time: each run replaces the shared Volt canvas.
-These input changes do not implement the FastAPI adapter or classify circuit safety.
+Voltage must be finite and positive; resistance must be finite and nonnegative.
+Negative resistance, NaN, and infinity are rejected before connecting to Volt.
+Zero resistance removes the resistor and directly wires the source to the LED.
+The fixed-drop estimate and `led_current_mA` are null for this case.
+`measurement_status` is "unavailable" and `measurement_note` explains why.
+Volt reported about 474.7 mA and 50 mA at different LED model states; waiting for
+matching samples did not establish a reliable current. Neither value is presented
+as a verified original measurement. Corrected positive-resistance circuits still
+return measured current. The API separately simulates the recommended resistor.
+Run one request at a time because Volt is a shared canvas.

@@ -11,7 +11,7 @@ class SimulationError(Exception):
 class Simulator(Protocol):
     name: str
 
-    async def measure_led_current_ma(self, circuit: CircuitRequest) -> float: ...
+    async def measure_led_current_ma(self, circuit: CircuitRequest) -> float | None: ...
 
 
 class MockSimulator:
@@ -36,11 +36,11 @@ class PhysBoxSimulator:
     """Bridge to the verified red-LED demo. No mock fallback."""
     name = "physbox"
 
-    async def measure_led_current_ma(self, circuit: CircuitRequest) -> float:
+    async def measure_led_current_ma(self, circuit: CircuitRequest) -> float | None:
         if not math.isfinite(circuit.led_forward_voltage) or circuit.led_forward_voltage != 2.0:
             raise SimulationError("Only the verified red LED model (led_forward_voltage=2.0) is supported")
-        if not math.isfinite(circuit.resistance) or circuit.resistance <= 0:
-            raise SimulationError("PhysBox currently requires a positive resistor; the missing-resistor case is not verified")
+        if not math.isfinite(circuit.resistance) or circuit.resistance < 0:
+            raise SimulationError("Resistance must be finite and nonnegative")
         try:
             from simulation.led_demo import run_led_demo
             async with _physbox_lock:
@@ -48,6 +48,10 @@ class PhysBoxSimulator:
                     supply_voltage=circuit.voltage,
                     resistance_ohms=circuit.resistance,
                 )
+            # Volt's missing-resistor LED readings change with its damaged state.
+            # Even apparently stable samples are not a verified current measurement.
+            if circuit.resistance == 0:
+                return None
             current = float(result["led_current_mA"])
             if not math.isfinite(current) or current < 0:
                 raise ValueError("PhysBox returned an invalid LED current")
