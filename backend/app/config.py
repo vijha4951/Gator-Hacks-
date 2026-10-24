@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-3.5-flash"
 
+    # Timeouts (seconds)
+    ai_timeout_seconds: float = 10.0   # Gemini explanation; falls back to rule-based text
+    sim_timeout_seconds: float = 20.0  # per simulator call; failure -> HTTP 502
+
 
 settings = Settings()
 
