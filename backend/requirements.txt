@@ -1,0 +1,10 @@
+pydantic-settings
+fastapi
+uvicorn[standard]
+pytest
+pytest-asyncio
+httpx
+google-genai
+-r ../simulation/requirements.txt
+
+pyserial==3.5

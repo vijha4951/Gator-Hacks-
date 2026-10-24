@@ -1,4 +1,22 @@
-node_modules
-dist
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Mac
 .DS_Store
-*.local
+
+# Environment variables
+.env
+.env.local
+
+# VS Code
+.vscode/
+
+# Node.js
+node_modules/
+
+# Build files
+dist/
+build/
