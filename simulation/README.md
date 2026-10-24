@@ -37,3 +37,23 @@ Known measurement limitation: the source current array reported 5 mA while the r
 The simulator remains browser-backed: this is not yet an unattended or multi-user backend service. No physical Arduino connection is implemented here.
 
 Official documentation: https://github.com/physbox-io/physbox-mcp
+
+## Configurable inputs
+
+The original command still defaults to 5 V and 220 ohms. To run 5 V and 330 ohms:
+
+```bash
+simulation/.venv/bin/python simulation/led_demo.py --voltage 5 --resistance 330
+```
+
+From Python, await `run_led_demo(supply_voltage=5, resistance_ohms=330)`.
+The result includes the input values, actual LED current in mA, LED voltage in V,
+and a separately labeled simplified estimate using a fixed 2 V LED drop.
+The LED model remains the same red LED; this estimate does not change its model.
+At 5 V and 330 ohms, the estimate is 9.09 mA; the actual simulation may differ.
+
+Inputs must be finite positive numbers. Zero or negative resistance, NaN, and
+infinity are rejected before connecting to Volt. Missing-resistor cases require
+separate simulation handling and are not supported by this demo yet.
+Run one request at a time: each run replaces the shared Volt canvas.
+These input changes do not implement the FastAPI adapter or classify circuit safety.
