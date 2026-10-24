@@ -92,7 +92,6 @@ class PhysBoxMCPClient:
             self.last_error = None
             logger.info("Connected to PhysBox MCP; discovered %d tools.", len(self._tools))
         except Exception as exc:  # noqa: BLE001 - startup should not disable mock mode
-            self.last_error = f"{type(exc).__name__}: {exc}"
             logger.warning("Could not connect to PhysBox MCP: %s", self.last_error)
             await self.stop()
 
