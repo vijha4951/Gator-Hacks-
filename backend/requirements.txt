@@ -1,0 +1,6 @@
+pydantic-settings
+fastapi
+uvicorn[standard]
+pytest
+httpx
+-r ../simulation/requirements.txt
