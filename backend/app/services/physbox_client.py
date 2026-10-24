@@ -73,6 +73,8 @@ class PhysBoxMCPClient:
         # Imported here to avoid the config -> simulator -> MCP client cycle.
         from app.config import settings
 
+        # Record what we're about to launch so any failure names the command.
+        launch = f"{settings.physbox_mcp_command} {' '.join(settings.physbox_mcp_args)}"
         try:
             self._context = Client(
                 StdioServerParameters(
@@ -92,9 +94,47 @@ class PhysBoxMCPClient:
             self.last_error = None
             logger.info("Connected to PhysBox MCP; discovered %d tools.", len(self._tools))
         except Exception as exc:  # noqa: BLE001 - startup should not disable mock mode
-            self.last_error = f"{type(exc).__name__}: {exc}"
-            logger.warning("Could not connect to PhysBox MCP: %s", self.last_error)
+            self.last_error = self._describe_startup_error(exc, launch)
+            # Full traceback at WARNING so the real cause is never hidden.
+            logger.warning(
+                "Could not connect to PhysBox MCP (command: %s): %s",
+                launch, self.last_error, exc_info=True,
+            )
             await self.stop()
+
+    @staticmethod
+    def _describe_startup_error(exc: BaseException, launch: str) -> str:
+        """Build a non-empty, actionable error string for a startup failure.
+
+        Some MCP/stdio failures raise exceptions whose str() is empty or whose
+        type alone is uninformative (e.g. a bare ExceptionGroup or a subprocess
+        that exits instantly). Never return None/empty: always say something
+        the next person can act on.
+        """
+        parts: list[str] = []
+
+        def _collect(e: BaseException) -> None:
+            name = type(e).__name__
+            text = str(e).strip()
+            parts.append(f"{name}: {text}" if text else name)
+            # Unwrap ExceptionGroup (Python 3.11+) so the real cause shows.
+            for sub in getattr(e, "exceptions", ()) or ():
+                _collect(sub)
+            cause = e.__cause__ or e.__context__
+            if cause is not None and cause is not e:
+                _collect(cause)
+
+        _collect(exc)
+        detail = " <- ".join(dict.fromkeys(parts))  # de-dup, keep order
+        if not detail:
+            detail = type(exc).__name__ or "unknown error"
+
+        return (
+            f"{detail} | launch command: {launch}. "
+            "Check that physbox-mcp is installed in this environment, the "
+            "command/python above is correct, and Volt is open with the "
+            "PhysBox relay running."
+        )
 
     async def stop(self) -> None:
         """Close the MCP session and its subprocess."""
