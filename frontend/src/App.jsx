@@ -65,6 +65,25 @@ const Page = ({ children, lamp = "", back, title, step, action, onGo, goDisabled
   );
 };
 
+const DEFAULT_PARTS = ["Arduino Uno", "Light sensor (LDR)", "LED", "Resistors 220 Ω, 10 kΩ", "Breadboard + wires"];
+const DEFAULT_STEPS = ["Light up the LED", "Read the light sensor", "Make the LED react"];
+// Each starter idea is linked to a materials text file in /public/materials/.
+const PLANS = {
+  "Make an LED blink": { file: "led-blink", steps: ["Wire the LED and resistor", "Upload the Blink sketch", "Change the blink speed"] },
+  "Night light for the dark": { file: "night-light", steps: DEFAULT_STEPS },
+  "Ideas for a starter kit": { file: "starter-kit", steps: ["Sort your parts", "Build a simple LED circuit", "Pick your first project"] },
+};
+const parseMaterials = (txt) => {
+  const lines = txt.split(/\r?\n/);
+  const first = (lines[0] || "").replace(/^PROJECT:\s*/i, "").trim();
+  let on = false; const parts = [];
+  for (const l of lines) {
+    if (/^[A-Z][A-Z ]+$/.test(l.trim())) on = l.trim() === "MATERIALS";
+    else if (on && l.startsWith("- ")) parts.push(l.slice(2).trim());
+  }
+  return { title: first, parts };
+};
+
 export default function App() {
   const [scr, setScr] = useState("home");
   const [sel, setSel] = useState(0);
@@ -78,7 +97,18 @@ export default function App() {
   const [idea, setIdea] = useState("");
   const [draft, setDraft] = useState("");
   const [have, setHave] = useState([true, false, true, true, true]);
+  const [mat, setMat] = useState(null); // materials loaded from the linked .txt file
   const [prog, setProg] = useState(0);
+  useEffect(() => {
+    const plan = PLANS[idea];
+    if (!plan) { setMat(null); setHave([true, false, true, true, true]); return; }
+    let alive = true;
+    fetch(`${import.meta.env.BASE_URL}materials/${plan.file}.txt`)
+      .then((r) => (r.ok ? r.text() : Promise.reject()))
+      .then((t) => { if (!alive) return; const m = parseMaterials(t); if (!m.parts.length) throw 0; setMat({ ...m, file: plan.file, steps: plan.steps }); setHave(m.parts.map(() => false)); })
+      .catch(() => { if (alive) { setMat(null); setHave([true, false, true, true, true]); } });
+    return () => { alive = false; };
+  }, [idea]);
   const [scanDone, setScanDone] = useState(false);
   const [res, setRes] = useState(null);
   const [err, setErr] = useState(null);
@@ -209,14 +239,14 @@ export default function App() {
         <div className="dlg" style={{ height: 100, marginTop: 24 }}>
           <div style={{ padding: "14px 20px" }}><Type text="Here's your plan →" /></div></div></div>
         <div className="a card panel-scroll plan-card" tabIndex={0} aria-label="Project plan, scroll for parts and steps" style={{ left: 760, top: 256, width: 584, height: 544, padding: 24 }}>
-          <p className="label">PROJECT NIGHT LIGHT</p>
+          <p className="label">{"PROJECT " + (mat ? mat.title : "NIGHT LIGHT")}</p>
           <div className="row px" style={{ fontSize: 12, color: "var(--mute)", marginTop: 14 }}><span>PARTS</span><span>HAVE IT?</span></div>
-          {["Arduino Uno", "Light sensor (LDR)", "LED", "Resistors 220 Ω, 10 kΩ", "Breadboard + wires"].map((p, i) => (
+          {(mat ? mat.parts : DEFAULT_PARTS).map((p, i) => (
             <div key={p} className="row"><span>{p}</span>
               <button className={"chk click" + (have[i] ? " on" : "")} aria-label={"Have " + p} onClick={() => setHave(have.map((h, j) => (j === i ? !h : h)))}>{have[i] ? "✓" : ""}</button></div>))}
-          <p style={{ fontSize: 20, margin: "6px 0 14px", color: "var(--mute)" }}>{have.filter((h) => !h).length} part to buy</p>
+          <p style={{ fontSize: 20, margin: "6px 0 14px", color: "var(--mute)" }}>{have.filter((h) => !h).length} {have.filter((h) => !h).length === 1 ? "part" : "parts"} to buy{mat && <> · <a href={`${import.meta.env.BASE_URL}materials/${mat.file}.txt`} download style={{ color: "inherit" }}>Download list (.txt)</a></>}</p>
           <p className="label" style={{ borderTop: "2px solid var(--ink)", paddingTop: 14 }}>PLAN</p>
-          {["Light up the LED", "Read the light sensor", "Make the LED react"].map((s, i) => (
+          {(mat ? mat.steps : DEFAULT_STEPS).map((s, i) => (
             <div key={s} className="row" style={{ height: 48 }}><span style={{ display: "flex", gap: 14, alignItems: "center" }}><span className="num">{i + 1}</span>{s}</span>
               <button className="click" aria-label="Check this step" style={{ width: 48, height: 44, border: "2px solid var(--ink)", borderRadius: 8, background: "#fff" }} onClick={() => go("check")}>{ICON.camS}</button></div>))}
         </div>
