@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { analyzeCircuit, setLed as sendLed, setRgb, followSwitch, getSwitch } from "./api";
 
 const Go = createContext(() => {});
-const Slots = createContext({ head: null, dock: null });
+const Slots = createContext({ head: null, dock: null, backX: 96 });
 
 const A = (n) => `/assets/${n}.svg`;
 const LEDS = { Red: 2, Green: 2.2, Blue: 3, White: 3 };
@@ -73,7 +73,7 @@ function Type({ text, speed = 30 }) {
 
 const Page = ({ children, lamp = "", back, title, step, action, onGo, goDisabled, ask = true, bar }) => {
   const go = useContext(Go);
-  const { head, dock } = useContext(Slots);
+  const { head, dock, backX } = useContext(Slots);
   return (
     <>
       {head && createPortal(
@@ -90,8 +90,8 @@ const Page = ({ children, lamp = "", back, title, step, action, onGo, goDisabled
           {action && <button className="a btn go click" disabled={goDisabled} onClick={onGo}><img src={A("spark")} alt="" aria-hidden="true" /><span className="btn-label">{action}</span></button>}
           {bar}
         </>, dock)}
-      {back && <button className="a back click" aria-label="Back" onClick={() => go(back)}><img src={A("back")} /></button>}
-      {title && <h2 className="a nav" style={{ left: back ? 160 : 96 }}>{title}</h2>}
+      {back && <button className="a back click" style={{ left: backX }} aria-label="Back" onClick={() => go(back)}><img src={A("back")} /></button>}
+      {title && <h2 className="a nav" style={{ left: back ? backX + 64 : 96 }}>{title}</h2>}
       {step != null && (
         <div className="a steps" style={{ left: 544 }}>
           {flow.map((f, i) => (
@@ -175,7 +175,10 @@ export default function App() {
   };
   const go = (s) => setScr(s);
   const { w, h } = win;
-  const scale = Math.max(0.4, Math.min(1.4, (w - 52) / 1388, Math.max(1, (h - 268) / 768)));
+  const scale = Math.max(0.4, Math.min(1.4, (w - 52) / 1388, Math.max(1, (h - 344) / 768)));
+  // The content block is centred on wide windows. Put the back arrow (and title) in line with the header lamp instead.
+  const pad = Math.max(0, (w - 52 - 1388 * scale) / 2);
+  const backX = 26 + (117 - 24 * scale - 26 - pad) / scale;
   const shellOuter = `M28 12H${w - 180}L${w - 160} 30H${w - 60}L${w - 12} 70V${h - 80}L${w - 68} ${h - 12}H28C17.3 ${h - 12} 12 ${h - 17.3} 12 ${h - 28}V28C12 17.3 17.3 12 28 12Z`;
 
   useEffect(() => {
@@ -502,7 +505,7 @@ export default function App() {
 
   return (
     <Go.Provider value={go}>
-      <Slots.Provider value={{ head, dock }}>
+      <Slots.Provider value={{ head, dock, backX }}>
         <div className="app">
           <svg className="shell" width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" stroke="#26332C">
             <path d={shellOuter} fill="#F6D64B" strokeWidth="4" />
@@ -512,7 +515,7 @@ export default function App() {
             <path d={`M${w - 52} ${h - 116}V${h - 80}L${w - 88} ${h - 44}`} strokeWidth="2" />
           </svg>
           <div className="scroller">
-            <div className="canvas" style={{ width: 1388 * scale, height: 768 * scale + 24 }}>
+            <div className="canvas" style={{ width: 1388 * scale, height: 768 * scale + 100 }}>
               <div className="stage" style={{ transform: `scale(${scale}) translate(-26px,-112px)` }}>{screens[scr]}</div>
             </div>
           </div>

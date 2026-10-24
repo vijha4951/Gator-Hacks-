@@ -33,7 +33,7 @@ button{font:inherit;color:inherit}
 .steps{top:170px;display:flex;align-items:center;gap:14px;font-family:"Press Start 2P",monospace;font-size:13px}
 .steps i{display:block;width:32px;height:2px;background:var(--mute)}
 .steps .cur{border-bottom:3px solid var(--ink);padding-bottom:2px}.steps .todo{color:var(--mute)}
-.ask{left:96px;bottom:48px;width:76px;height:84px;border:2px solid var(--ink);border-radius:12px;background:#fff;font-family:"Press Start 2P",monospace;font-size:11px;cursor:pointer}
+.ask{left:96px;bottom:146px;width:76px;height:84px;border:2px solid var(--ink);border-radius:12px;background:#fff;font-family:"Press Start 2P",monospace;font-size:11px;cursor:pointer}
 .choice{width:389px;height:330px;padding:32px;text-align:left;background:#fff;border:2px solid var(--ink);border-radius:14px;box-shadow:0 5px 0 var(--ink);display:block}
 .choice.sel{background:var(--yellow)}
 .choice h3{font-family:"Press Start 2P",monospace;font-size:17px;margin:36px 0 16px}
