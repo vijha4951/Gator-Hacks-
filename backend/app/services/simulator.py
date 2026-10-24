@@ -1,3 +1,5 @@
+import asyncio
+import math
 from typing import Protocol
 from app.schemas import CircuitRequest
 
@@ -25,10 +27,30 @@ class MockSimulator:
         return round(drop / r * 1000, 2)
 
 
+# All requests in this process share the same browser canvas.
+# Run FastAPI with a single worker; do not run the CLI concurrently.
+_physbox_lock = asyncio.Lock()
+
+
 class PhysBoxSimulator:
-    """Member 5 implements this: build the circuit in Volt, call circuit_run_sim
-    via MCP, extract the LED current. Verify real tool names first."""
+    """Bridge to the verified red-LED demo. No mock fallback."""
     name = "physbox"
 
     async def measure_led_current_ma(self, circuit: CircuitRequest) -> float:
-        raise SimulationError("PhysBox simulator not implemented yet")
+        if not math.isfinite(circuit.led_forward_voltage) or circuit.led_forward_voltage != 2.0:
+            raise SimulationError("Only the verified red LED model (led_forward_voltage=2.0) is supported")
+        if not math.isfinite(circuit.resistance) or circuit.resistance <= 0:
+            raise SimulationError("PhysBox currently requires a positive resistor; the missing-resistor case is not verified")
+        try:
+            from simulation.led_demo import run_led_demo
+            async with _physbox_lock:
+                result = await run_led_demo(
+                    supply_voltage=circuit.voltage,
+                    resistance_ohms=circuit.resistance,
+                )
+            current = float(result["led_current_mA"])
+            if not math.isfinite(current) or current < 0:
+                raise ValueError("PhysBox returned an invalid LED current")
+            return current
+        except Exception as exc:
+            raise SimulationError(f"PhysBox could not measure LED current: {exc}") from exc
