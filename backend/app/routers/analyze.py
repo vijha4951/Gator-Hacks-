@@ -10,7 +10,8 @@ router = APIRouter(prefix="/api")
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(req: CircuitRequest, request: Request, sim: Simulator = Depends(get_simulator)):
     try:
+        gemini = request.app.state.gemini
         async with request.app.state.circuit_analysis_lock:
-            return await analyze_circuit(req, sim)
+            return await analyze_circuit(req, sim, gemini)
     except SimulationError as e:
         raise HTTPException(status_code=502, detail=f"Simulation failed: {e}")

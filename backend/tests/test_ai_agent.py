@@ -1,13 +1,13 @@
-"""Tests for ai_agent.explain() — no real API calls are made."""
+"""Tests for GeminiClient — no real API calls are made."""
 
 from __future__ import annotations
 
-import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.schemas import CircuitRequest, Scenario
+from app.services.ai_agent import GeminiClient, _build_user_message
 
 
 # ---------------------------------------------------------------------------
@@ -23,105 +23,105 @@ def _scenario(r=220.0, i=13.29, s="safe") -> Scenario:
     return Scenario(resistance=r, current_ma=i, status=s)
 
 
-# ---------------------------------------------------------------------------
-# Fallback when GEMINI_API_KEY is absent
-# ---------------------------------------------------------------------------
-
-@pytest.mark.asyncio
-async def test_returns_none_when_no_api_key():
-    """explain() must return None (triggering rule-based text) if key is unset."""
-    from app.services import ai_agent
-
-    with patch("app.config.settings") as mock_settings:
-        mock_settings.gemini_api_key = None
-        result = await ai_agent.explain(_req(), _scenario(), None)
-
-    assert result is None
-
-
-# ---------------------------------------------------------------------------
-# Fallback on API error
-# ---------------------------------------------------------------------------
-
-@pytest.mark.asyncio
-async def test_returns_none_on_api_error():
-    """Any exception from the Gemini client must be caught; return None."""
-    from app.services import ai_agent
-
-    mock_client = MagicMock()
-    mock_client.aio.interactions.create = AsyncMock(
-        side_effect=RuntimeError("quota exceeded")
-    )
-
+def _started_client(mock_genai_client) -> GeminiClient:
+    """Build a GeminiClient whose underlying genai.Client is mocked."""
+    client = GeminiClient()
     with patch("app.config.settings") as mock_settings, \
-         patch("google.genai.Client", return_value=mock_client):
+         patch("google.genai.Client", return_value=mock_genai_client):
         mock_settings.gemini_api_key = "fake-key"
         mock_settings.gemini_model = "gemini-3.5-flash"
-        result = await ai_agent.explain(_req(), _scenario(), None)
+        client.start()
+    return client
 
+
+# ---------------------------------------------------------------------------
+# start(): unconfigured when no API key
+# ---------------------------------------------------------------------------
+
+def test_not_configured_without_api_key():
+    """With no key, start() leaves the client unconfigured (fail-safe)."""
+    client = GeminiClient()
+    with patch("app.config.settings") as mock_settings:
+        mock_settings.gemini_api_key = None
+        client.start()
+
+    assert client.configured is False
+    assert client.status()["configured"] is False
+
+
+# ---------------------------------------------------------------------------
+# explain(): fallback when unconfigured
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_explain_returns_none_when_unconfigured():
+    """An unconfigured client must return None (triggering rule-based text)."""
+    client = GeminiClient()  # never started
+    result = await client.explain(_req(), _scenario(), None)
     assert result is None
 
 
 # ---------------------------------------------------------------------------
-# Happy path: populated response forwarded as-is
+# explain(): fallback on API error
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_returns_text_on_success():
-    """explain() must return the model's text when the API succeeds."""
-    from app.services import ai_agent
+async def test_explain_returns_none_on_api_error():
+    """Any exception from the Gemini call must be caught; return None."""
+    mock_genai = MagicMock()
+    mock_genai.aio.interactions.create = AsyncMock(
+        side_effect=RuntimeError("quota exceeded")
+    )
+    client = _started_client(mock_genai)
+    assert client.configured is True
 
+    result = await client.explain(_req(), _scenario(), None)
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# explain(): happy path forwards the model text
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_explain_returns_text_on_success():
+    """explain() returns the model's text when the API succeeds."""
     expected = "Simulated current looks fine for this LED."
-
     mock_interaction = MagicMock()
     mock_interaction.output_text = expected
 
-    mock_client = MagicMock()
-    mock_client.aio.interactions.create = AsyncMock(return_value=mock_interaction)
+    mock_genai = MagicMock()
+    mock_genai.aio.interactions.create = AsyncMock(return_value=mock_interaction)
+    client = _started_client(mock_genai)
 
-    with patch("app.config.settings") as mock_settings, \
-         patch("google.genai.Client", return_value=mock_client):
-        mock_settings.gemini_api_key = "fake-key"
-        mock_settings.gemini_model = "gemini-3.5-flash"
-        result = await ai_agent.explain(_req(), _scenario(), None)
-
+    result = await client.explain(_req(), _scenario(), None)
     assert result == expected
 
 
 # ---------------------------------------------------------------------------
-# Empty response falls back to None
+# explain(): empty response falls back to None
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_returns_none_on_empty_response():
+async def test_explain_returns_none_on_empty_response():
     """If the model returns an empty string, fall back to rule-based text."""
-    from app.services import ai_agent
-
     mock_interaction = MagicMock()
     mock_interaction.output_text = "   "  # whitespace only
 
-    mock_client = MagicMock()
-    mock_client.aio.interactions.create = AsyncMock(return_value=mock_interaction)
+    mock_genai = MagicMock()
+    mock_genai.aio.interactions.create = AsyncMock(return_value=mock_interaction)
+    client = _started_client(mock_genai)
 
-    with patch("app.config.settings") as mock_settings, \
-         patch("google.genai.Client", return_value=mock_client):
-        mock_settings.gemini_api_key = "fake-key"
-        mock_settings.gemini_model = "gemini-3.5-flash"
-        result = await ai_agent.explain(_req(), _scenario(), None)
-
+    result = await client.explain(_req(), _scenario(), None)
     assert result is None
 
 
 # ---------------------------------------------------------------------------
-# Corrected scenario is passed to the model
+# Prompt building: corrected scenario is included
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
-async def test_corrected_scenario_included_in_prompt():
+def test_corrected_scenario_included_in_prompt():
     """When corrected is provided, the prompt must mention the recommended resistor."""
-    from app.services import ai_agent
-    from app.services.ai_agent import _build_user_message
-
     corrected = _scenario(r=330.0, i=9.09, s="safe")
     msg = _build_user_message(_req(), _scenario(r=0, i=600, s="danger"), corrected)
 

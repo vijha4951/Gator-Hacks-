@@ -27,3 +27,25 @@ class AnalyzeResponse(BaseModel): # this is what the frontend gets back after ba
     simulated_with: str
     original: Scenario
     corrected: Scenario | None = None
+
+
+class ToolCall(BaseModel):
+    """One step the agent took: a tool it chose, its arguments, and the result."""
+    tool: str
+    arguments: dict
+    result: dict
+
+
+class AgentAnalyzeResponse(BaseModel):
+    """Result of the LLM-driven (agentic) analysis.
+
+    `analysis` is the same deterministic result the /api/analyze pipeline
+    produces, kept as the trustworthy backbone. `agent_explanation` is the
+    model's own conclusion after it drove the tools. `tool_calls` is the
+    transcript of what the agent did, so the agentic behaviour is visible.
+    """
+    agent_explanation: str
+    tool_calls: list[ToolCall]
+    iterations: int
+    fell_back: bool  # True if the agent loop failed and we used the deterministic result
+    analysis: AnalyzeResponse
