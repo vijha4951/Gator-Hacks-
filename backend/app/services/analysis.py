@@ -2,8 +2,7 @@ import asyncio
 import logging
 
 from app.schemas import AnalyzeResponse, CircuitRequest, Scenario, Status
-from app.services import ai_agent
-from app.config import settings
+from app.services.ai_agent import GeminiClient
 from app.services.simulator import Simulator
 from app.services.simulator import SimulationError
 
@@ -60,8 +59,10 @@ async def _explain(
         )
         return None
 
-async def analyze_circuit(req: CircuitRequest, sim: Simulator) -> AnalyzeResponse:
-    i0 = await _measure(sim, req)
+async def analyze_circuit(
+    req: CircuitRequest, sim: Simulator, gemini: GeminiClient
+) -> AnalyzeResponse:
+    i0 = await sim.measure_led_current_ma(req)
     original = Scenario(resistance=req.resistance, current_ma=i0, status=classify(i0))
 
     warnings: list[str] = []
@@ -92,7 +93,7 @@ async def analyze_circuit(req: CircuitRequest, sim: Simulator) -> AnalyzeRespons
     else:
         rec = "Increase the source voltage above the LED's forward voltage."
 
-    rec = await _explain(req, original, corrected) or rec
+    rec = await gemini.explain(req, original, corrected) or rec
 
     return AnalyzeResponse(
         status=original.status, current_ma=i0, warnings=warnings,
