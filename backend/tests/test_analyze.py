@@ -1,7 +1,23 @@
+from unittest.mock import AsyncMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _no_live_ai():
+    """Keep these endpoint tests offline and deterministic.
+
+    Without this, a GEMINI_API_KEY in .env makes analyze_circuit() issue a real
+    network call to Gemini, which is slow, flaky, and can hang the suite. Forcing
+    explain() to return None exercises the rule-based recommendation path.
+    """
+    with patch("app.services.ai_agent.explain", new=AsyncMock(return_value=None)):
+        yield
 
 
 def test_safe_circuit():
