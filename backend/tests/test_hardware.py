@@ -98,3 +98,54 @@ def test_hardware_endpoint_unconfigured_returns_503():
             assert r.status_code == 503
     finally:
         app.dependency_overrides.clear()
+
+
+class ScriptedSerial(FakeSerial):
+    """Replies like the real sketch: echoes commands, answers SWITCH? from `switch_closed`."""
+    def __init__(self, switch_closed=True):
+        super().__init__()
+        self.switch_closed = switch_closed
+
+    def write(self, payload):
+        self.writes.append(payload)
+        cmd = payload.decode().strip()
+        reply = ("SWITCH_CLOSED" if self.switch_closed else "SWITCH_OPEN") if cmd == "SWITCH?" else cmd
+        self.replies.extend([b"READY\n", (reply + "\n").encode()])
+        return len(payload)
+
+
+def test_rgb_and_switch_commands_via_service():
+    connection = ScriptedSerial(switch_closed=False)
+    device = ArduinoLED("TEST", serial_factory=lambda *a, **k: connection, boot_delay=0)
+    assert device.set_rgb(True, False, True)["reply"] == "RGB 1 0 1"
+    assert device.follow_switch()["mode"] == "switch"
+    assert device.read_switch()["closed"] is False
+    connection.switch_closed = True
+    assert device.read_switch()["closed"] is True
+    assert connection.writes == [b"RGB 1 0 1\n", b"MODE_SWITCH\n", b"SWITCH?\n", b"SWITCH?\n"]
+    device.close()
+
+
+def test_rgb_and_switch_endpoints():
+    connection = ScriptedSerial(switch_closed=True)
+    device = ArduinoLED("TEST", serial_factory=lambda *a, **k: connection, boot_delay=0)
+    app.dependency_overrides[get_arduino] = lambda: device
+    try:
+        with TestClient(app) as client:
+            r = client.post("/api/hardware/rgb", json={"r": True, "g": True, "b": False})
+            assert r.status_code == 200 and r.json()["reply"] == "RGB 1 1 0"
+            assert client.post("/api/hardware/rgb", json={"r": "maybe"}).status_code == 422
+            assert client.post("/api/hardware/switch/follow").json()["acknowledged"] is True
+            assert client.get("/api/hardware/switch").json() == {
+                "closed": True, "reply": "SWITCH_CLOSED", "port": "TEST"}
+    finally:
+        app.dependency_overrides.clear()
+        device.close()
+
+
+def test_old_sketch_gives_reupload_hint():
+    connection = FakeSerial()
+    connection.write = lambda payload: (connection.replies.append(b"ERROR: Unknown command\n"), len(payload))[1]
+    device = ArduinoLED("TEST", serial_factory=lambda *a, **k: connection, boot_delay=0)
+    with pytest.raises(HardwareError, match="re-upload"):
+        device.follow_switch()

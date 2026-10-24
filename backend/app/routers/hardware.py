@@ -19,6 +19,12 @@ class LEDRequest(BaseModel):
     state: Literal["on", "off"]
 
 
+class RGBRequest(BaseModel):
+    r: bool = False
+    g: bool = False
+    b: bool = False
+
+
 @router.get("/ports")
 def ports():
     """List ports for configuration; does not open a USB connection."""
@@ -30,5 +36,30 @@ def ports():
 def set_led(req: LEDRequest, device: ArduinoLED = Depends(get_arduino)):
     try:
         return device.set_led(req.state)
+    except HardwareError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/rgb")
+def set_rgb(req: RGBRequest, device: ArduinoLED = Depends(get_arduino)):
+    try:
+        return device.set_rgb(req.r, req.g, req.b)
+    except HardwareError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/switch/follow")
+def follow_switch(device: ArduinoLED = Depends(get_arduino)):
+    """Make the pin 8 LED follow the physical switch on pin 2."""
+    try:
+        return device.follow_switch()
+    except HardwareError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/switch")
+def read_switch(device: ArduinoLED = Depends(get_arduino)):
+    try:
+        return device.read_switch()
     except HardwareError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

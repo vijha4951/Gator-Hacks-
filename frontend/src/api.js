@@ -12,13 +12,13 @@ export class ApiError extends Error {
   }
 }
 
-async function post(path, body) {
+async function send(method, path, body) {
   let res;
   try {
     res = await fetch(`${API_URL}${path}`, {
-      method: "POST",
+      method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
     throw new ApiError("NETWORK", "Couldn't reach the server.");
@@ -30,6 +30,9 @@ async function post(path, body) {
   if (res.status === 503) throw new ApiError("HARDWARE", data.detail || "Uno not responding.");
   throw new ApiError("UNKNOWN", `Server error (${res.status}).`);
 }
+
+const post = (path, body) => send("POST", path, body);
+const get = (path) => send("GET", path);
 
 // POST /api/analyze → { status, current_ma (may be null), warnings, recommendation,
 //                       simulated_with, original:{resistance,current_ma,status}, corrected|null }
@@ -46,6 +49,24 @@ export function analyzeCircuit({ voltage, resistance, led_forward_voltage }) {
 export function setLed(state) {
   if (USE_MOCK) return new Promise((ok) => setTimeout(() => ok({ state, acknowledged: true }), 300));
   return post("/api/hardware/led", { state });
+}
+
+// POST /api/hardware/rgb {r,g,b: bool} → pins 9/10/11 (RGB LED circuit)
+export function setRgb({ r, g, b }) {
+  if (USE_MOCK) return new Promise((ok) => setTimeout(() => ok({ r, g, b, acknowledged: true }), 300));
+  return post("/api/hardware/rgb", { r: !!r, g: !!g, b: !!b });
+}
+
+// POST /api/hardware/switch/follow → the pin 8 LED follows the physical switch on pin 2
+export function followSwitch() {
+  if (USE_MOCK) return new Promise((ok) => setTimeout(() => ok({ mode: "switch", acknowledged: true }), 300));
+  return post("/api/hardware/switch/follow", {});
+}
+
+// GET /api/hardware/switch → { closed: bool }  (mock mode flips every 2 s so the demo moves)
+export function getSwitch() {
+  if (USE_MOCK) return Promise.resolve({ closed: Math.floor(Date.now() / 2000) % 2 === 0 });
+  return get("/api/hardware/switch");
 }
 
 // ---- Mock: mirrors backend/app/services/analysis.py + MockSimulator ----

@@ -126,3 +126,18 @@ button{font:inherit;color:inherit}
 .next-action{background:#fff;border-width:2px;box-shadow:0 3px 0 var(--ink)}
 .next-title{font-size:18px;margin:20px 0 12px}
 .next-action .num{background:var(--paper)}
+
+/* circuit-type dropdown + RGB channel chips */
+.pick{position:absolute;height:56px;display:flex;align-items:center;padding:0 16px;border:2px solid var(--ink);border-radius:10px;background:var(--cyan);box-shadow:inset 0 3px 0 rgba(38,51,44,.14)}
+.pick:after{content:"▾";position:absolute;right:16px;font-size:20px;pointer-events:none}
+.pick select{appearance:none;-webkit-appearance:none;width:100%;border:0;background:none;font:26px "Pixelify Sans",Roboto,sans-serif;color:var(--ink);padding-right:28px;outline:none;cursor:pointer}
+.pick:focus-within{outline:3px solid var(--ink);outline-offset:2px}
+.pick:has(select:disabled){opacity:.55}.pick select:disabled{cursor:not-allowed}
+.chip{height:56px;display:flex;align-items:center;gap:10px;padding:0 16px;border:2px solid var(--ink);border-radius:10px;background:#fff;box-shadow:0 4px 0 var(--ink);font:13px "Press Start 2P",monospace}
+.chip i{display:block;width:20px;height:20px;border-radius:50%;border:2px solid var(--ink)}
+.chip.on{background:var(--yellow)}
+.rgb-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:2px solid rgba(38,51,44,.15)}
+.rgb-row i{width:22px;height:22px;border-radius:50%;border:2px solid var(--ink);flex:none}
+.rgb-row .px{font-size:13px;width:92px}
+.rgb-row b{font:700 26px Roboto,sans-serif;font-variant-numeric:tabular-nums;margin-left:auto;white-space:nowrap}
+.rgb-row .fix{min-width:150px;text-align:right;font-size:22px}
