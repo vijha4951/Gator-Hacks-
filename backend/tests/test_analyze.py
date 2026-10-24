@@ -2,9 +2,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-
+from app.config import get_simulator
 from app.main import app
+from app.services.simulator import MockSimulator
 
+app.dependency_overrides[get_simulator] = lambda: MockSimulator()
 client = TestClient(app)
 
 
