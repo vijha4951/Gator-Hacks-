@@ -1,0 +1,96 @@
+Ran check antigravity mcp directory
+Ran check Gator-Hacks project directory
+Analyzed pyproject.toml:L1-36
+Ran check files in src · Exited with code 1
+Analyzed server.py:L1-29
+Ran list pip packages in Gator-Hacks venv · Exited with code 1
+Ran check venv directory contents · Exited with code 1
+Analyzed mcp_servers.md:L1-93
+Ran find log files in gemini directory · Exited with code 1
+Ran inspect physbox_mcp module
+Ran check physbox_mcp server mcp instance
+Ran list all tools in physbox_mcp server
+Ran categorize tools in physbox_mcp
+
+From your configured `physbox-mcp` server, there are **242 tools** available across 6 main functional categories:
+
+---
+
+### 1. General & Session Hub Tools (4 tools)
+Controls active simulator sessions and relays commands to browser instances:
+* `detect_apps` — Scans for open PhysBox simulator browser tabs.
+* `list_sessions` — Lists active simulation sessions.
+* `use_session` — Sets the active target session for tool execution.
+* `send_command` — Sends raw control payloads directly to the simulator.
+
+---
+
+### 2. Physics & 3D Mechanics (`physics_*` — 105 tools)
+Full rigid-body simulation, procedural CAD, mesh modeling, and CAM/CNC machining:
+
+* **Scene & Simulation Lifecycle:**
+  `physics_build_scene`, `physics_get_scene`, `physics_get_scene_summary`, `physics_update_scene`, `physics_load_scene_file`, `physics_get_state`, `physics_play`, `physics_stop`, `physics_toggle_play`, `physics_reset`, `physics_run_headless`, `physics_check_collisions`, `physics_measure`, `physics_get_telemetry`, `physics_get_history`, `physics_set_environment`, `physics_add_simulation`.
+* **Objects & Materials:**
+  `physics_add_object`, `physics_get_objects`, `physics_get_object`, `physics_update_object`, `physics_delete_object`, `physics_set_constraint`, `physics_set_impact`, `physics_set_crumple`, `physics_get_breaks`, `physics_restore_break`, `physics_set_color`, `physics_paint`, `physics_clear_paint`, `physics_apply_pattern`, `physics_knife`, `physics_combine`, `physics_cut`.
+* **Sculpting & Lattice/Mesh Generation:**
+  `physics_create_sculpt`, `physics_get_sculpt`, `physics_set_sculpt_base`, `physics_sculpt`, `physics_sculpt_cut`, `physics_probe_sculpt`, `physics_undo_sculpt`, `physics_create_lattice`, `physics_get_lattice`, `physics_lattice_faces`, `physics_lattice_extrude`, `physics_lattice_inset`, `physics_lattice_bevel`, `physics_lattice_bevel_edges`, `physics_lattice_circle`, `physics_lattice_revolve`, `physics_lattice_bridge`, `physics_lattice_delete_faces`, `physics_lattice_sharpen`, `physics_lattice_smooth`, `physics_lattice_orient`, `physics_lattice_dimension`, `physics_lattice_wall`, `physics_undo_lattice`, `physics_get_edges`, `physics_round_edges`, `physics_repair_mesh`.
+* **CAD/CAM, Casting & Fabrication:**
+  `physics_validate_scad`, `physics_import_stl`, `physics_split_for_print`, `physics_make_pour_box`, `physics_set_cast_prep`, `physics_export_cast`, `physics_timber_breakdown`, `physics_export_machining`, `physics_export_relief`, `physics_carve_scene`.
+* **CNC Machine & Hardware Control:**
+  `physics_machine_status`, `physics_machine_settings`, `physics_machine_list_devices`, `physics_machine_arm`, `physics_machine_disarm`, `physics_machine_connect`, `physics_machine_disconnect`, `physics_machine_jog`, `physics_machine_home`, `physics_machine_unlock`, `physics_machine_goto_origin`, `physics_machine_zero_xy`, `physics_machine_zero_z`, `physics_machine_zero_all`, `physics_machine_probe_surface`, `physics_machine_frame_job`, `physics_machine_pause`, `physics_machine_resume`, `physics_machine_preview_resume`, `physics_machine_resume_from_line`, `physics_machine_cancel`, `physics_machine_estop`, `physics_machine_trim`.
+* **Presets, UI & Telemetry:**
+  `physics_list_presets`, `physics_load_preset`, `physics_save_preset`, `physics_delete_preset`, `physics_get_camera`, `physics_set_camera`, `physics_get_screenshot`, `physics_get_schema`, `physics_set_reference_image`, `physics_get_note_cards`, `physics_set_note_cards`.
+
+---
+
+### 3. Circuit & Electronics (`circuit_*` — 51 tools)
+SPICE circuit modeling, interactive components, MCU definition, and PCB milling:
+
+* **Circuit Schematic & Simulation:**
+  `circuit_get_state`, `circuit_get_components`, `circuit_get_edges`, `circuit_get_summary`, `circuit_set_circuit`, `circuit_set_nodes`, `circuit_set_edges`, `circuit_validate_circuit`, `circuit_update_component`, `circuit_delete_component`, `circuit_reset`, `circuit_run_sim`, `circuit_stop_sim`, `circuit_toggle_probe`, `circuit_get_waveforms`, `circuit_get_history`, `circuit_get_schema`.
+* **Audio & Media I/O:**
+  `circuit_upload_audio`, `circuit_download_audio`, `circuit_get_screenshot`.
+* **PCB & Microcontrollers:**
+  `circuit_get_pcb_layout`, `circuit_get_pcb_preview`, `circuit_define_mcu`, `circuit_list_mcu_presets`.
+* **PCB Milling Machine Control:**
+  `circuit_mill_pcb`, `circuit_machine_status`, `circuit_machine_settings`, `circuit_machine_list_devices`, `circuit_machine_arm`, `circuit_machine_disarm`, `circuit_machine_connect`, `circuit_machine_disconnect`, `circuit_machine_jog`, `circuit_machine_home`, `circuit_machine_unlock`, `circuit_machine_goto_origin`, `circuit_machine_zero_xy`, `circuit_machine_zero_z`, `circuit_machine_probe_surface`, `circuit_machine_frame_job`, `circuit_machine_pause`, `circuit_machine_resume`, `circuit_machine_cancel`, `circuit_machine_estop`, `circuit_machine_trim`.
+* **Presets & Notes:**
+  `circuit_list_presets`, `circuit_load_preset`, `circuit_save_preset`, `circuit_delete_preset`, `circuit_get_note_cards`, `circuit_set_note_cards`.
+
+---
+
+### 4. Etch / 2D & Laser Vector Fabrication (`etch_*` — 56 tools)
+Laser cutting, CNC engraving, multi-layer sheet management, and G-code generation:
+
+* **Document & Vector Canvas:**
+  `etch_get_state`, `etch_set_document`, `etch_set_svg`, `etch_export_svg`, `etch_validate_document`, `etch_get_summary`, `etch_add_element`, `etch_update_element`, `etch_add_image`, `etch_add_clipart`, `etch_list_clipart`, `etch_combine`, `etch_fill_region`, `etch_erase`.
+* **Sheet & Multi-Material Management:**
+  `etch_list_sheets`, `etch_select_sheet`, `etch_new_sheet`, `etch_close_sheet`, `etch_update_layer`.
+* **Parametric Fabrication Patterns:**
+  `etch_make_living_hinge`, `etch_make_perforation`, `etch_make_ornament`, `etch_make_test_grid`, `etch_add_registration`.
+* **CAM & G-code Execution:**
+  `etch_list_capabilities`, `etch_generate_gcode`, `etch_run_job`.
+* **Laser/Cutter Machine Control:**
+  `etch_machine_status`, `etch_machine_settings`, `etch_machine_list_devices`, `etch_machine_arm`, `etch_machine_disarm`, `etch_machine_connect`, `etch_machine_disconnect`, `etch_machine_jog`, `etch_machine_home`, `etch_machine_unlock`, `etch_machine_goto_origin`, `etch_machine_zero_xy`, `etch_machine_zero_z`, `etch_machine_guide_spot`, `etch_machine_probe_surface`, `etch_machine_frame_job`, `etch_machine_pause`, `etch_machine_resume`, `etch_machine_cancel`, `etch_machine_estop`, `etch_machine_trim`.
+* **Presets & Notes:**
+  `etch_list_presets`, `etch_load_preset`, `etch_save_preset`, `etch_delete_preset`, `etch_get_screenshot`, `etch_get_schema`, `etch_get_note_card`, `etch_set_note_card`.
+
+---
+
+### 5. Process & Pipeline Automation (`process_*` — 16 tools)
+State machines, multi-step flow execution, Monte Carlo analysis, and optimization:
+
+* `process_get_state`, `process_get_metrics`, `process_start`, `process_stop`, `process_reset`
+* `process_set_nodes`, `process_set_edges`, `process_run_headless`, `process_get_history`
+* `process_run_monte_carlo`, `process_run_optimizer`, `process_get_schema`
+* `process_list_presets`, `process_load_preset`, `process_get_library`, `process_save_library`
+
+---
+
+### 6. PhysBox Account & Cloud Telemetry (`physbox_*` — 10 tools)
+Cloud runs, authentication, and document revision tracking:
+
+* `physbox_whoami` — Authenticated user verification.
+* `physbox_set_token` — Sets user/API session credentials.
+* `physbox_list_runs`, `physbox_find_runs`, `physbox_get_run`, `physbox_runs_summary`, `physbox_get_run_gcode` — Run log and G-code inspection.
+* `physbox_list_documents`, `physbox_get_document`, `physbox_document_revisions` — Document sync and revision history.

@@ -1,0 +1,2 @@
+[console_scripts]
+gator-hacks = gator_hacks.cli:main
