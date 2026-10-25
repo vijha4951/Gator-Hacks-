@@ -1,4 +1,5 @@
 """Single-process USB serial control for the verified Uno LED sketch."""
+import json
 import threading
 import time
 from typing import Literal
@@ -33,9 +34,28 @@ class ArduinoLED:
     def set_led(self, state: Literal["on", "off"]):
         if state not in ("on", "off"):
             raise HardwareError("LED state must be on or off")
+        command = "LED_ON" if state == "on" else "LED_OFF"
+        self._exchange(command, command)
+        return {"state": state, "acknowledged": True, "reply": command, "port": self.port,
+                "note": "Arduino acknowledged the output command; LED light and current are not measured."}
+
+    def read_state(self):
+        reply = self._exchange("STATE", "STATE ")
+        try:
+            state = json.loads(reply[len("STATE "):])
+            if (state.get("state") not in ("on", "off")
+                    or type(state.get("button_on_pressed")) is not bool
+                    or type(state.get("button_off_pressed")) is not bool
+                    or (state.get("led_pin"), state.get("on_pin"), state.get("off_pin")) != (5, 9, 8)):
+                raise ValueError("Unexpected two-button state fields")
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise HardwareError("Invalid state response; upload the two_button_led sketch") from exc
+        return {**state, "connected": True, "source": "arduino", "port": self.port,
+                "note": "Sketch-reported state and button inputs, not a current or light measurement."}
+
+    def _exchange(self, command, expected):
         if not self.port:
             raise HardwareError("Set ARDUINO_PORT to the Uno USB port and restart the backend")
-        command = "LED_ON" if state == "on" else "LED_OFF"
         with self._lock:
             try:
                 if self._serial is None:
@@ -50,12 +70,8 @@ class ArduinoLED:
                 deadline = time.monotonic() + 3
                 while time.monotonic() < deadline:
                     reply = connection.readline().decode("ascii", errors="replace").strip()
-                    if reply == command:
-                        return {
-                            "state": state, "acknowledged": True,
-                            "reply": reply, "port": self.port,
-                            "note": "Arduino acknowledged the output command; LED light and current are not measured.",
-                        }
+                    if (reply == expected if command != "STATE" else reply.startswith(expected)):
+                        return reply
                     if reply and reply != "READY":
                         raise HardwareError(f"Unexpected Arduino reply: {reply[:100]}")
                 raise HardwareError("No matching Arduino acknowledgement; physical LED state is unconfirmed")

@@ -27,7 +27,7 @@ def test_physbox_endpoint_passes_inputs_and_returns_milliamps(monkeypatch):
         assert body["current_ma"] == 8.9863
         assert body["simulated_with"] == "physbox"
         assert body["corrected"] is None
-        assert calls == [{"supply_voltage": 5, "resistance_ohms": 330}]
+        assert calls == [{"supply_voltage": 5, "resistance_ohms": 330, "led_forward_voltage": 2.0}]
     finally:
         app.dependency_overrides.clear()
 
@@ -47,7 +47,7 @@ def test_disconnected_simulator_returns_502(monkeypatch):
         app.dependency_overrides.clear()
 
 
-@pytest.mark.parametrize("updates", [{"resistance": -1}, {"led_forward_voltage": 3}])
+@pytest.mark.parametrize("updates", [{"resistance": -1}, {"led_forward_voltage": 2.5}])
 def test_unsupported_models_are_explicit(updates):
     req = CircuitRequest(voltage=5, resistance=220).model_copy(update=updates)
     with pytest.raises(SimulationError):
@@ -157,5 +157,34 @@ def test_missing_resistor_failure_is_not_hidden(monkeypatch):
             response = client.post("/api/analyze", json={"voltage": 5, "resistance": 0})
         assert response.status_code == 502
         assert "Volt disconnected" in response.json()["detail"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("vf,color", [(2.0,"red"),(2.2,"green"),(3.0,"blue")])
+def test_led_model_parameters_are_used(vf, color):
+    c = led_demo.build_led_circuit(5, 220, vf)
+    led = next(n for n in c["nodes"] if n["id"] == "led1")
+    assert led["data"]["v_drop"] == vf
+    assert led["data"]["color"] == color
+    assert next(n for n in led_demo.build_led_circuit()["nodes"] if n["id"] == "led1")["data"]["color"] == "red"
+
+
+@pytest.mark.parametrize("vf", [2.2, 3.0])
+def test_color_passes_through_original_and_corrected_simulation(monkeypatch, vf):
+    calls=[]
+    async def run(**kwargs):
+        calls.append(kwargs)
+        return {"led_current_mA": 25 if len(calls) == 1 else 14}
+    monkeypatch.setattr(led_demo, "run_led_demo", run)
+    app.dependency_overrides[get_simulator] = PhysBoxSimulator
+    try:
+        with TestClient(app) as client:
+            r=client.post("/api/analyze",json={"voltage":8,"resistance":220,"led_forward_voltage":vf})
+        assert r.status_code == 200
+        assert r.json()["corrected"]["status"] == "safe"
+        assert len(calls) == 2
+        assert all(c["led_forward_voltage"] == vf for c in calls)
+        assert calls[1]["resistance_ohms"] > calls[0]["resistance_ohms"]
     finally:
         app.dependency_overrides.clear()

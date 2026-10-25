@@ -36,7 +36,8 @@ unavailable: readings changed between about 474.7 mA and 50 mA with the LED's
 model state. Timing or matching samples cannot establish validity. Both the CLI
 and PhysBox adapter return null for this original current. The backend flags the
 missing-resistor risk from topology and separately simulates a resistor correction.
-Non-2.0 LED forward-voltage requests remain unsupported.
+Supported forward-voltage models: red=2.0 V, green=2.2 V, blue=3.0 V.
+Other values remain unsupported until verified.
 
 ## API contract change for frontend and AI developers
 
@@ -59,3 +60,17 @@ Run tests from the repository root:
 ```bash
 SIMULATOR=mock PYTHONPATH=backend:. simulation/.venv/bin/python -m pytest backend/tests
 ```
+
+
+## Red, green, and blue simulation models
+
+The API's existing led_forward_voltage parameter selects red (2.0 V), green
+(2.2 V), or blue (3.0 V). Both color and v_drop are set on the Volt LED node.
+At 5 V and 220 ohms, real Volt runs returned approximately 13.29 mA red,
+12.42 mA green, and 8.98 mA blue. These are representative models, not every
+LED's datasheet values. A corrected circuit preserves the selected LED model.
+The CLI supports --led-forward-voltage 2.2 or --led-forward-voltage 3.
+No Arduino sketch changes are required; simulation color does not change a
+physical single-color LED. The current API carries a forward voltage, not a color
+field: the frontend's White option also sends 3 V and is indistinguishable from
+Blue. A distinct white model needs a separate color input and verification.

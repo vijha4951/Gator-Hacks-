@@ -33,12 +33,12 @@ _physbox_lock = asyncio.Lock()
 
 
 class PhysBoxSimulator:
-    """Bridge to the verified red-LED demo. No mock fallback."""
+    """Bridge to the verified red, green, and blue LED models. No mock fallback."""
     name = "physbox"
 
     async def measure_led_current_ma(self, circuit: CircuitRequest) -> float | None:
-        if not math.isfinite(circuit.led_forward_voltage) or circuit.led_forward_voltage != 2.0:
-            raise SimulationError("Only the verified red LED model (led_forward_voltage=2.0) is supported")
+        if not math.isfinite(circuit.led_forward_voltage) or circuit.led_forward_voltage not in (2.0, 2.2, 3.0):
+            raise SimulationError("Supported LED models: red=2.0, green=2.2, blue=3.0 V")
         if not math.isfinite(circuit.resistance) or circuit.resistance < 0:
             raise SimulationError("Resistance must be finite and nonnegative")
         try:
@@ -47,6 +47,7 @@ class PhysBoxSimulator:
                 result = await run_led_demo(
                     supply_voltage=circuit.voltage,
                     resistance_ohms=circuit.resistance,
+                    led_forward_voltage=circuit.led_forward_voltage,
                 )
             # Volt's missing-resistor LED readings change with its damaged state.
             # Even apparently stable samples are not a verified current measurement.

@@ -32,3 +32,25 @@ def set_led(req: LEDRequest, device: ArduinoLED = Depends(get_arduino)):
         return device.set_led(req.state)
     except HardwareError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+class ButtonRequest(BaseModel):
+    button: Literal["on", "off"]
+
+
+@router.post("/buttons")
+def press_button(req: ButtonRequest, device: ArduinoLED = Depends(get_arduino)):
+    """Website ON/OFF action; does not physically depress a button."""
+    try:
+        return device.set_led(req.button)
+    except HardwareError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/state")
+def read_state(device: ArduinoLED = Depends(get_arduino)):
+    """Poll this endpoint to reflect physical button presses in the frontend."""
+    try:
+        return device.read_state()
+    except HardwareError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

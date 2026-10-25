@@ -8,7 +8,10 @@ from pathlib import Path
 from fastmcp import Client
 
 
-def build_led_circuit(supply_voltage=5.0, resistance_ohms=220.0):
+LED_MODELS = {2.0: "red", 2.2: "green", 3.0: "blue"}
+
+
+def build_led_circuit(supply_voltage=5.0, resistance_ohms=220.0, led_forward_voltage=2.0):
     """Build a fresh circuit; reject invalid inputs before contacting Volt."""
     for name, value in (("supply_voltage", supply_voltage),
                         ("resistance_ohms", resistance_ohms)):
@@ -16,10 +19,15 @@ def build_led_circuit(supply_voltage=5.0, resistance_ohms=220.0):
             raise ValueError(f"{name} must be finite; voltage must be positive and resistance nonnegative")
         if not math.isfinite(value) or value < 0 or (name == "supply_voltage" and value == 0):
             raise ValueError(f"{name} must be finite; voltage must be positive and resistance nonnegative")
+    if isinstance(led_forward_voltage, bool) or led_forward_voltage not in LED_MODELS:
+        raise ValueError("Supported LED forward-voltage models: red=2.0, green=2.2, blue=3.0 V")
     circuit = json.loads(Path(__file__).with_name("led_220.json").read_text())
     nodes = {node["id"]: node for node in circuit["nodes"]}
     nodes["sg1"]["data"].update(value=supply_voltage, label=f"{supply_voltage:g}V")
     nodes["r1"]["data"].update(value=resistance_ohms, label=f"{resistance_ohms:g}")
+    nodes["led1"]["data"].update(color=LED_MODELS[led_forward_voltage],
+                                   v_drop=led_forward_voltage,
+                                   label=f"{LED_MODELS[led_forward_voltage]} LED")
     if resistance_ohms == 0:
         # Missing resistor means a direct wire, not an artificial resistance floor.
         circuit["nodes"] = [node for node in circuit["nodes"] if node["id"] != "r1"]
@@ -32,9 +40,9 @@ def build_led_circuit(supply_voltage=5.0, resistance_ohms=220.0):
     return circuit
 
 
-async def run_led_demo(supply_voltage=5.0, resistance_ohms=220.0):
+async def run_led_demo(supply_voltage=5.0, resistance_ohms=220.0, led_forward_voltage=2.0):
     """Run one circuit and return actual PhysBox measurements in mA and V."""
-    circuit = build_led_circuit(supply_voltage, resistance_ohms)
+    circuit = build_led_circuit(supply_voltage, resistance_ohms, led_forward_voltage)
     async with Client("http://localhost:3141/mcp", timeout=60) as client:
         tools = {tool.name for tool in await client.list_tools()}
         required = {"detect_apps", "circuit_validate_circuit", "circuit_set_circuit",
@@ -92,8 +100,10 @@ async def run_led_demo(supply_voltage=5.0, resistance_ohms=220.0):
             "sample_count": len(samples),
             "supply_voltage_V": supply_voltage,
             "resistance_ohms": resistance_ohms,
-            # A fixed 2 V estimate, not a PhysBox measurement or safety verdict.
-            "simplified_expected_current_mA": (max(supply_voltage - 2, 0) / resistance_ohms * 1000
+            "led_forward_voltage_V": led_forward_voltage,
+            "led_color": LED_MODELS[led_forward_voltage],
+            # A fixed-drop estimate, not a PhysBox measurement or safety verdict.
+            "simplified_expected_current_mA": (max(supply_voltage - led_forward_voltage, 0) / resistance_ohms * 1000
                                               if resistance_ohms else None),
         }
 
@@ -102,9 +112,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--voltage", type=float, default=5.0, help="DC supply in volts (default: 5)")
     parser.add_argument("--resistance", type=float, default=220.0, help="Resistance in ohms (default: 220)")
+    parser.add_argument("--led-forward-voltage", type=float, choices=list(LED_MODELS), default=2.0,
+                        help="LED model: red=2, green=2.2, blue=3")
     args = parser.parse_args()
     try:
-        result = asyncio.run(run_led_demo(args.voltage, args.resistance))
+        result = asyncio.run(run_led_demo(args.voltage, args.resistance, args.led_forward_voltage))
     except ValueError as exc:
         parser.error(str(exc))
     print(json.dumps(result, indent=2))
