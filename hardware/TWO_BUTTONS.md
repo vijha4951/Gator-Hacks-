@@ -80,3 +80,9 @@ simulated current nor sketch-reported state is a physical current measurement.
 
 Keep this as a distinct two-button option. Existing single-LED controls retain
 their contract. RGB is a separate pending feature, not included in this change.
+
+Deployed frontend compatibility: GET /api/hardware/switch returns the same real
+state plus `closed` (true when the LED latch is ON). POST
+/api/hardware/switch/follow implements the screen's Turn on action: it sends
+LED_ON and then reads the real latch. Physical buttons can change it afterward. This does not turn the momentary
+buttons into a maintained single switch.

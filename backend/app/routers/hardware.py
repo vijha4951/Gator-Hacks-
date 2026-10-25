@@ -54,3 +54,33 @@ def read_state(device: ArduinoLED = Depends(get_arduino)):
         return device.read_state()
     except HardwareError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+def _switch_state(device: ArduinoLED):
+    # Frontend's switch indicator represents the latched LED output. The two
+    # physical momentary button inputs remain available as separate fields.
+    state = device.read_state()
+    return {**state, "closed": state["state"] == "on", "mode": "two-button-latch"}
+
+
+@router.get("/switch")
+def switch_state(device: ArduinoLED = Depends(get_arduino)):
+    """Compatibility route for the deployed switch screen; reads real USB state."""
+    try:
+        return _switch_state(device)
+    except HardwareError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/switch/follow")
+def follow_switch(device: ArduinoLED = Depends(get_arduino)):
+    """Frontend Turn on action: command ON, then read the actual latch.
+
+    Physical buttons continue to control the latch after this command.
+    """
+    try:
+        acknowledgement = device.set_led("on")
+        return {**_switch_state(device),
+                "acknowledged": acknowledgement["acknowledged"]}
+    except HardwareError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

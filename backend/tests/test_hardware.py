@@ -98,3 +98,40 @@ def test_hardware_endpoint_unconfigured_returns_503():
             assert r.status_code == 503
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("state,closed", [("on", True), ("off", False)])
+def test_deployed_switch_routes_report_real_latch(state, closed):
+    device = Mock()
+    device.set_led.return_value = {"acknowledged": True}
+    device.read_state.return_value = {
+        "state": state, "connected": True, "source": "arduino",
+        "button_on_pressed": False, "button_off_pressed": False,
+    }
+    app.dependency_overrides[get_arduino] = lambda: device
+    try:
+        with TestClient(app) as client:
+            read = client.get("/api/hardware/switch")
+            follow = client.post("/api/hardware/switch/follow", json={})
+        assert read.status_code == follow.status_code == 200
+        assert read.json()["closed"] is closed
+        assert follow.json()["closed"] is closed
+        assert follow.json()["acknowledged"] is True
+        device.set_led.assert_called_once_with("on")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_switch_connection_failure_is_not_reported_as_closed():
+    device = Mock()
+    device.read_state.side_effect = HardwareError("USB disconnected")
+    app.dependency_overrides[get_arduino] = lambda: device
+    try:
+        with TestClient(app) as client:
+            for method, path in [("GET", "/api/hardware/switch"),
+                                 ("POST", "/api/hardware/switch/follow")]:
+                response = client.request(method, path)
+                assert response.status_code == 503
+                assert response.json()["detail"] == "USB disconnected"
+    finally:
+        app.dependency_overrides.clear()
