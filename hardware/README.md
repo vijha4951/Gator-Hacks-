@@ -1,11 +1,17 @@
 # Uno USB LED control
 
-Wiring: Uno digital pin 8 -> 220 ohm resistor -> red LED anode; LED cathode -> GND.
+Use the verified `two_button_led/two_button_led.ino` sketch in Arduino IDE,
+board Arduino Uno. Wiring: D5 -> 220 ohm resistor -> LED anode; cathode -> GND.
+The ON button connects D9 to GND; the OFF button connects D8 to GND.
+See [TWO_BUTTONS.md](TWO_BUTTONS.md) for wiring and state-query details.
 Unplug USB before rewiring. Keep the resistor physically installed.
-Upload `led_serial/led_serial.ino` in Arduino IDE, board Arduino Uno.
-The sketch uses 9600 baud and newline-terminated LED_ON / LED_OFF commands.
-It starts with pin 8 LOW. Test in Serial Monitor, then close Serial Monitor before
-starting the backend. Only one program can own the port.
+The sketch uses 9600 baud, newline-terminated LED_ON / LED_OFF commands,
+and STATE queries. It starts OFF. Close Serial Monitor before starting the
+backend; only one program can own the port.
+
+`led_serial/led_serial.ino` is a legacy pin-8, command-only example. It does not
+support the state queries required by the current frontend. Use the two-button
+sketch for the integrated application.
 
 From the repository root, install `backend/requirements.txt` in your virtual environment.
 Find the port with `python -m serial.tools.list_ports` (use your virtual environment's Python).

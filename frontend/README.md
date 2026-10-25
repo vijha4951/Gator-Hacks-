@@ -15,7 +15,7 @@ Set in `.env.local`:
 VITE_USE_MOCK=false
 VITE_API_URL=http://localhost:8000
 ```
-Start the backend from `sim-hardware` (see hardware/README.md). CORS already allows http://localhost:5173.
+Start the backend from this same checkout (see ../README.md and ../hardware/TWO_BUTTONS.md). CORS already allows http://localhost:5173.
 
 | Screen | Endpoint |
 |---|---|
