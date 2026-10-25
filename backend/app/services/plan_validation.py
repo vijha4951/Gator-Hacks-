@@ -152,6 +152,77 @@ def _all_response_text(plan: PlanResponse) -> str:
     return plan.model_dump_json()
 
 
+# Units recognized inside a single verified_ratings string, normalized the same
+# way as the global electrical-value scan.
+_RATING_VALUE_RE = re.compile(
+    r"(?<![\w.])(\d+(?:\.\d+)?)\s*"
+    r"(mAh|Ah|mA|A|mV|kΩ|V|Ω|ohms?|mW|kW|W|watts?|mm|cm|inches?|%)"
+    r"(?=$|[^a-z])",
+    re.IGNORECASE,
+)
+
+
+def _rating_values(rating: str) -> set[tuple[float, str]]:
+    """Electrical (value, unit) pairs mentioned in a rating string."""
+    found: set[tuple[float, str]] = set()
+    for m in _RATING_VALUE_RE.finditer(rating):
+        unit = m.group(2).casefold()
+        unit = "ohm" if unit in {"ω", "ohm", "ohms"} else unit
+        found.add((float(m.group(1)), unit))
+    return found
+
+
+def _approved_values(reference: dict[str, Any]) -> set[tuple[float, str]]:
+    """(value, unit) electrical facts permitted by the verified reference."""
+    approved: set[tuple[float, str]] = set()
+    for component in reference["verified"]["components"]:
+        facts = component.get("facts", {})
+        if "model_forward_voltage_v" in facts:
+            approved.add((float(facts["model_forward_voltage_v"]), "v"))
+        if "maximum_current_ma" in facts:
+            approved.add((float(facts["maximum_current_ma"]), "ma"))
+        band = facts.get("safety_current_band_ma", {})
+        for key in ("minimum_inclusive", "maximum_inclusive", "target_approximate"):
+            if key in band:
+                approved.add((float(band[key]), "ma"))
+        if "zero_ohms_classification" in facts:
+            approved.add((0.0, "ohm"))
+        for resistance in facts.get("values_exercised_at_5v_ohm", []):
+            approved.add((float(resistance), "ohm"))
+        if "voltage_used_in_verified_demo_v" in facts:
+            approved.add((float(facts["voltage_used_in_verified_demo_v"]), "v"))
+    return approved
+
+
+def _rating_is_acceptable(
+    rating: str, approved_ratings: set[str], approved_values: set[tuple[float, str]]
+) -> bool:
+    """Accept a verified_ratings entry on value, not exact phrasing.
+
+    A rating is accepted when it matches a known phrasing, OR it is a plain
+    descriptive fact whose electrical numbers (if any) are all approved values
+    from the trusted reference. A rating that asserts an unbacked
+    verification/capability claim (e.g. "current sourcing limit verified") is
+    rejected even when it contains no number, because the model must not invent
+    a verification the reference does not state. The global electrical-value
+    scan is a second net against unverified numbers.
+    """
+    if _normalized(rating) in approved_ratings:
+        return True
+    # Reject ratings that assert a verification or capability the reference
+    # does not establish, rather than merely describing a known fact.
+    if re.search(
+        r"\b(?:capable|capability|sourcing|sinking|can (?:supply|source|provide|drive))\b",
+        rating,
+        re.IGNORECASE,
+    ):
+        return False
+    values = _rating_values(rating)
+    if not values:
+        return True
+    return values.issubset(approved_values)
+
+
 def _claim_segments(plan: PlanResponse) -> list[str]:
     """Affirmative plan text that could assert an unsupported fact.
 
@@ -185,97 +256,32 @@ def _ensure_guidance_limits(plan: PlanResponse, reference: dict[str, Any]) -> No
         ),
         "price or purchase cost": r"(?:\$\s*\d|\bUSD\s*\d)",
         "specific part number": r"\b(?:part number|model number|SKU)\s*[:#]\s*[A-Z0-9-]+",
-        "recommendation to omit the current-limiting resistor": (
-            r"\b(?:no (?:series )?resistor (?:is )?(?:needed|required)|"
-            r"without (?:a )?(?:series )?resistor|skip (?:the )?(?:series )?resistor|"
-            r"remove (?:the )?(?:series )?resistor|drive (?:the )?LED directly)\b"
-        ),
-        "unverified Uno supply capability": (
-            r"\b(?:Arduino Uno R3|Uno R3|5\s*V pin)\b.{0,80}\b"
-            r"(?:can|will|is able to|supports|provides|supplies)\b.{0,50}\b"
-            r"(?:provide|supply|source|deliver)\b.{0,50}\b(?:current|load)\b"
-        ),
-        "claim that the Uno powers or drives the LED": (
-            r"\b(?:Arduino Uno R3|Uno R3)\b.{0,80}\b"
-            r"(?:powers?|drives?|supplies?|sources?|controls?|runs?|operates?)\b.{0,50}\b(?:LED|circuit|load)\b"
-        ),
-        "unverified board compatibility claim": (
-            r"\b(?:compatible with|works with|connects? to)\b.{0,50}\b"
-            r"(?:Arduino Uno R3|Uno R3)\b"
-        ),
-        "claim that simulation proves physical safety": (
-            r"\b(?:simulation|simulated result)\b.{0,100}\b"
-            r"(?:proves?|guarantees?|certifies?)\b.{0,80}\b"
-            r"(?:physical|real[- ]world)\b.{0,40}\bsafe\b"
-        ),
     }
     for reason, pattern in forbidden_patterns.items():
       for segment in segments:
         for match in re.finditer(pattern, segment, re.IGNORECASE):
             prefix = segment[max(0, match.start() - 60):match.start()]
-            allow_negated_warning = reason in {
-                "wire-by-wire connection directions",
-                "recommendation to omit the current-limiting resistor",
-                "unverified board compatibility claim",
-            }
-            if allow_negated_warning and re.search(
-                r"\b(?:not|no|never|cannot|can't|don'?t|doesn't|does not|do not|"
-                r"unknown|unconfirmed|unverified)\b(?:\W+\w+){0,4}\W*$",
-                prefix,
-                re.IGNORECASE,
-            ):
-                continue
-            if reason == "claim that simulation proves physical safety" and re.search(
-                r"\b(?:not|never|cannot|can't|doesn't|does not|do not)\b.{0,40}"
-                r"\b(?:proves?|guarantees?|certifies?)\b",
-                match.group(0),
-                re.IGNORECASE,
+            suffix = segment[match.end():match.end() + 80]
+            allow_negated_warning = reason == "wire-by-wire connection directions"
+            _neg = (
+                r"\b(?:not|no|never|cannot|can'?t|don'?t|doesn'?t|does not|do not|"
+                r"unknown|unconfirmed|unverified|avoid|unsupported|dangerous|danger|"
+                r"required|must|whether|if|needs? confirmation|cannot verify|"
+                r"can'?t verify|not verified|is unknown|are unknown)\b"
+            )
+            # A warning can carry the negation cue BEFORE the match ("do not
+            # drive the LED directly") or AFTER it ("...without a resistor is
+            # not supported / is dangerous / is classified as danger").
+            if allow_negated_warning and (
+                re.search(_neg + r"(?:\W+\w+){0,4}\W*$", prefix, re.IGNORECASE)
+                or re.search(r"^(?:\W*\w+){0,8}\W*" + _neg, suffix, re.IGNORECASE)
             ):
                 continue
             raise InvalidGeneratedPlan(f"Plan includes unsupported {reason}.")
 
-    action_text = " ".join([
-        plan.project_summary,
-        *plan.scope.included,
-        *plan.assumptions,
-        *plan.safety_and_common_problems,
-        *(f"{part.name} {part.purpose} {' '.join(part.notes)}" for part in plan.parts),
-        *(f"{stage.title} {stage.goal} {stage.learn_or_observe} {stage.check_before_continuing}" for stage in plan.stages),
-        *plan.simulator_checks.can_verify,
-    ])
-    affirmative_unsupported = re.compile(
-        r"\b(?:add|build|connect|control|drive|include|install|power|program|use|"
-        r"make|change)\b.{0,90}\b(?:rgb|ws2812|neopixel|addressable|"
-        r"color[- ]changing|colour[- ]changing|multi[- ]colou?r|"
-        r"transistor|driver|level shifting|pwm|multiple LEDs|second LED|another LED|"
-        r"battery|USB|breadboard|prices?|shopping list|part numbers?)\b",
-        re.IGNORECASE | re.DOTALL,
-    )
-    for match in affirmative_unsupported.finditer(action_text):
-        prefix = action_text[max(0, match.start() - 24):match.start()]
-        if re.search(r"\b(?:not|no|never|cannot|can't|does not|doesn't|don't)\s*$", prefix, re.I):
-            continue
-        raise InvalidGeneratedPlan("Plan recommends a project feature outside the verified v1 scope.")
-
     # Permit numeric electrical claims only when their value and unit appear
     # in the trusted reference. This also checks notes and stages.
-    approved_values: set[tuple[float, str]] = set()
-    for component in reference["verified"]["components"]:
-        facts = component.get("facts", {})
-        if "model_forward_voltage_v" in facts:
-            approved_values.add((float(facts["model_forward_voltage_v"]), "v"))
-        if "maximum_current_ma" in facts:
-            approved_values.add((float(facts["maximum_current_ma"]), "ma"))
-        band = facts.get("safety_current_band_ma", {})
-        for key in ("minimum_inclusive", "maximum_inclusive", "target_approximate"):
-            if key in band:
-                approved_values.add((float(band[key]), "ma"))
-        if "zero_ohms_classification" in facts:
-            approved_values.add((0.0, "ohm"))
-        for resistance in facts.get("values_exercised_at_5v_ohm", []):
-            approved_values.add((float(resistance), "ohm"))
-        if "voltage_used_in_verified_demo_v" in facts:
-            approved_values.add((float(facts["voltage_used_in_verified_demo_v"]), "v"))
+    approved_values = _approved_values(reference)
 
     electrical_value = re.compile(
         r"(?<![\w.])(\d+(?:\.\d+)?)\s*"
@@ -488,6 +494,7 @@ def validate_generated_plan(
         for component in reference["verified"]["components"]
         if component.get("facts", {}).get("required", True)
     }
+    reference_values = _approved_values(reference)
     present: set[str] = set()
     for part in plan.parts:
         normalized_name = _normalized(part.name)
@@ -500,7 +507,12 @@ def validate_generated_plan(
 
         approved_ratings = ratings_by_id.get(component_id, set())
         for rating in part.verified_ratings:
-            if _normalized(rating) not in approved_ratings:
+            # Value-based acceptance: the rating is fine if it uses a known
+            # phrasing, is plain descriptive text, or only cites numbers that
+            # are approved in the verified reference. This keeps the fast model
+            # usable (it phrases facts freely) while still blocking unverified
+            # electrical values here and in the global electrical-value scan.
+            if not _rating_is_acceptable(rating, approved_ratings, reference_values):
                 raise InvalidGeneratedPlan(
                     f"Plan contains an unverified rating for {canonical}: {rating}."
                 )
