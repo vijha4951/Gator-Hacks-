@@ -1,12 +1,34 @@
 import asyncio
 import logging
+import time
+from contextlib import asynccontextmanager
 
+from app.config import settings
 from app.schemas import AnalyzeResponse, CircuitRequest, Scenario, Status
 from app.services.ai_agent import GeminiClient
 from app.services.simulator import Simulator
 from app.services.simulator import SimulationError
 
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def _timed(phase: str):
+    """Log how long an await-heavy phase of a request takes.
+
+    Emitted at INFO so each request's Volt/Gemini breakdown shows in the server
+    log without debug logging. A phase that raises is still timed and labelled
+    'failed' so a slow error is as visible as a slow success.
+    """
+    start = time.perf_counter()
+    status = "ok"
+    try:
+        yield
+    except BaseException:
+        status = "failed"
+        raise
+    finally:
+        logger.info("analyze phase %-18s %6.2fs (%s)", phase, time.perf_counter() - start, status)
 
 TARGET_MA = 15.0
 MAX_SAFE_MA = 20.0
@@ -44,12 +66,15 @@ async def _measure(sim: Simulator, circuit: CircuitRequest) -> float:
 
 
 async def _explain(
-    req: CircuitRequest, original: Scenario, corrected: Scenario | None
+    gemini: GeminiClient,
+    req: CircuitRequest,
+    original: Scenario,
+    corrected: Scenario | None,
 ) -> str | None:
     """Get the AI explanation, or None if it's slow (caller uses rule-based text)."""
     try:
         return await asyncio.wait_for(
-            ai_agent.explain(req, original, corrected),
+            gemini.explain(req, original, corrected),
             timeout=settings.ai_timeout_seconds,
         )
     except asyncio.TimeoutError:
@@ -62,7 +87,10 @@ async def _explain(
 async def analyze_circuit(
     req: CircuitRequest, sim: Simulator, gemini: GeminiClient
 ) -> AnalyzeResponse:
-    i0 = await sim.measure_led_current_ma(req)
+    request_start = time.perf_counter()
+
+    async with _timed(f"sim-original[{sim.name}]"):
+        i0 = await _measure(sim, req)
     original = Scenario(resistance=req.resistance, current_ma=i0, status=classify(i0))
 
     warnings: list[str] = []
@@ -82,7 +110,8 @@ async def analyze_circuit(
         new_r = suggest_resistor(req)
         if new_r is not None:
             fixed = req.model_copy(update={"resistance": new_r})
-            i1 = await _measure(sim, fixed)  # re-simulate the fix
+            async with _timed(f"sim-corrected[{sim.name}]"):
+                i1 = await _measure(sim, fixed)  # re-simulate the fix
             corrected = Scenario(resistance=new_r, current_ma=i1, status=classify(i1))
 
     if corrected:
@@ -93,7 +122,15 @@ async def analyze_circuit(
     else:
         rec = "Increase the source voltage above the LED's forward voltage."
 
-    rec = await gemini.explain(req, original, corrected) or rec
+    async with _timed("gemini-explain"):
+        explanation = await _explain(gemini, req, original, corrected)
+    rec = explanation or rec
+    explanation_source = "gemini" if explanation else "rule-based"
+
+    logger.info(
+        "analyze done status=%s source=%s total=%.2fs",
+        original.status, explanation_source, time.perf_counter() - request_start,
+    )
 
     return AnalyzeResponse(
         status=original.status, current_ma=i0, warnings=warnings,

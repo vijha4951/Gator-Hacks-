@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import logging
 import asyncio
+import os
 from typing import Any
 
 from mcp import Client, StdioServerParameters
+from mcp.client.stdio import stdio_client
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,7 @@ class PhysBoxMCPClient:
         self._client: Any | None = None
         self._entered = False
         self._tools: list[Any] = []
+        self._errlog: Any | None = None
         self.last_error: str | None = None
 
     @property
@@ -76,12 +79,25 @@ class PhysBoxMCPClient:
         # Record what we're about to launch so any failure names the command.
         launch = f"{settings.physbox_mcp_command} {' '.join(settings.physbox_mcp_args)}"
         try:
-            self._context = Client(
+            # Build the stdio transport ourselves so we can redirect the MCP
+            # subprocess's stderr away from this process's console. FastMCP
+            # prints a large startup banner to stderr; when that inherits the
+            # console handle under `uvicorn` on Windows, the blocking console
+            # write stalls the child long enough that its stdout pipe closes
+            # before the JSON-RPC handshake completes, surfacing as
+            # "MCPError: Connection closed". Sending child stderr to the null
+            # device removes that contention. (A bound TestClient or a plain
+            # asyncio runner do not hit this because their stderr is not the
+            # same blocking console pipe.)
+            self._errlog = open(os.devnull, "w", encoding="utf-8")
+            transport = stdio_client(
                 StdioServerParameters(
                     command=settings.physbox_mcp_command,
                     args=settings.physbox_mcp_args,
-                )
+                ),
+                errlog=self._errlog,
             )
+            self._context = Client(transport)
             self._client = await asyncio.wait_for(self._context.__aenter__(), timeout=30)
             self._entered = True
             page = await asyncio.wait_for(self._client.list_tools(), timeout=30)
@@ -147,6 +163,12 @@ class PhysBoxMCPClient:
                 await asyncio.wait_for(context.__aexit__(None, None, None), timeout=3)
             except Exception as exc:  # noqa: BLE001 - shutdown must continue
                 logger.warning("Error while closing PhysBox MCP: %s", exc)
+        errlog, self._errlog = self._errlog, None
+        if errlog is not None:
+            try:
+                errlog.close()
+            except Exception:  # noqa: BLE001 - shutdown must continue
+                pass
 
     async def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
         """Call a discovered tool, refusing names not advertised by the server."""

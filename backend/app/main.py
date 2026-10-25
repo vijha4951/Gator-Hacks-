@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import asyncio
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,8 +10,36 @@ from app.services.ai_agent import GeminiClient
 from app.services.physbox_client import PhysBoxMCPClient
 
 
+def _configure_app_logging() -> None:
+    """Route the `app` package loggers through uvicorn's handler at INFO.
+
+    uvicorn attaches handlers only to its own `uvicorn*` loggers and leaves the
+    root at WARNING, so application `logger.info(...)` calls (e.g. the per-phase
+    request timings in analysis.py) are otherwise dropped. Borrow uvicorn's
+    handlers when present so timing lines share the server's log format and
+    stream; fall back to a basic handler when running outside uvicorn (tests,
+    scripts).
+    """
+    app_logger = logging.getLogger("app")
+    app_logger.setLevel(logging.INFO)
+    uvicorn_logger = logging.getLogger("uvicorn")
+    if uvicorn_logger.handlers:
+        app_logger.handlers = uvicorn_logger.handlers
+        app_logger.propagate = False
+    elif not app_logger.handlers:
+        app_logger.addHandler(logging.StreamHandler())
+        app_logger.propagate = False
+
+
+_configure_app_logging()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Re-run now that uvicorn's handlers are installed, so app INFO logs (the
+    # per-phase request timings) share the server's log stream and format.
+    _configure_app_logging()
+
     # Build one Gemini client for the life of the API. If no key is configured,
     # it stays unconfigured and analyze falls back to rule-based text;
     # /api/gemini/status reports the state.

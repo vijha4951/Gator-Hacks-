@@ -69,7 +69,7 @@ async def test_explain_returns_none_when_unconfigured():
 async def test_explain_returns_none_on_api_error():
     """Any exception from the Gemini call must be caught; return None."""
     mock_genai = MagicMock()
-    mock_genai.aio.interactions.create = AsyncMock(
+    mock_genai.aio.models.generate_content = AsyncMock(
         side_effect=RuntimeError("quota exceeded")
     )
     client = _started_client(mock_genai)
@@ -87,11 +87,11 @@ async def test_explain_returns_none_on_api_error():
 async def test_explain_returns_text_on_success():
     """explain() returns the model's text when the API succeeds."""
     expected = "Simulated current looks fine for this LED."
-    mock_interaction = MagicMock()
-    mock_interaction.output_text = expected
+    mock_response = MagicMock()
+    mock_response.text = expected
 
     mock_genai = MagicMock()
-    mock_genai.aio.interactions.create = AsyncMock(return_value=mock_interaction)
+    mock_genai.aio.models.generate_content = AsyncMock(return_value=mock_response)
     client = _started_client(mock_genai)
 
     result = await client.explain(_req(), _scenario(), None)
@@ -105,11 +105,11 @@ async def test_explain_returns_text_on_success():
 @pytest.mark.asyncio
 async def test_explain_returns_none_on_empty_response():
     """If the model returns an empty string, fall back to rule-based text."""
-    mock_interaction = MagicMock()
-    mock_interaction.output_text = "   "  # whitespace only
+    mock_response = MagicMock()
+    mock_response.text = "   "  # whitespace only
 
     mock_genai = MagicMock()
-    mock_genai.aio.interactions.create = AsyncMock(return_value=mock_interaction)
+    mock_genai.aio.models.generate_content = AsyncMock(return_value=mock_response)
     client = _started_client(mock_genai)
 
     result = await client.explain(_req(), _scenario(), None)

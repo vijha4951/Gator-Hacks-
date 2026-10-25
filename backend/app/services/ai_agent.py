@@ -175,14 +175,21 @@ class GeminiClient:
             return None
 
         try:
-            interaction = await self._client.aio.interactions.create(
+            # Use generate_content rather than the interactions API: for this
+            # single-shot explanation the interactions (agentic/reasoning)
+            # endpoint added large, variable latency (routinely 45-70s) that
+            # blew the request timeout, while generate_content returns the same
+            # text far more consistently (~9-34s in testing). The agent
+            # tool-calling loop still uses interactions via create_interaction.
+            from google.genai import types
+
+            response = await self._client.aio.models.generate_content(
                 model=self._model,
-                system_instruction=_SYSTEM_PROMPT,
-                input=_build_user_message(circuit, original, corrected),
-                store=False,  # no conversation history needed between requests
+                contents=_build_user_message(circuit, original, corrected),
+                config=types.GenerateContentConfig(system_instruction=_SYSTEM_PROMPT),
             )
 
-            text = (interaction.output_text or "").strip()
+            text = (response.text or "").strip()
             if not text:
                 logger.warning("Gemini returned an empty response; using rule-based fallback.")
                 return None
