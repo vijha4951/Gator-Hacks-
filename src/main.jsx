@@ -338,6 +338,10 @@ function App() {
     setBudget("");
     setMustUseBoard(false);
     setConstraintsNotes("");
+    // Return focus to the (now empty) description so it is clear a new idea is
+    // needed; without this the primary button looks stuck because it is
+    // disabled until the description has at least 3 characters.
+    window.requestAnimationFrame(() => document.getElementById("description")?.focus());
   }
 
   function editRequest() {
