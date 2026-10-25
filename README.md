@@ -30,6 +30,10 @@ to the reachable HTTPS backend, VITE_USE_MOCK=false, and rebuild after changes.
 A temporary tunnel can expire; the laptop backend, tunnel, and Volt tab must stay
 running. Uploading frontend assets does not host USB hardware or PhysBox.
 
+Note: the Vercel-hosted site is only the frontend. For the deployed site to work,
+a running local FastAPI backend and an active PhysBox/Volt session must still be
+available; the UI cannot function by itself without the local API and PhysBox.
+
 ## AI and feature status
 
 Gemini explains supplied simulated measurements in recommendation. API responses
