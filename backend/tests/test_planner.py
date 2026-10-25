@@ -58,7 +58,10 @@ def test_plan_endpoint_returns_503_when_gemini_is_unconfigured():
     try:
         response = _API.post(
             "/api/plan",
-            json={"project_description": "color-changing LED with Arduino Uno R3"},
+            json={
+                "project_description": "Plan a single red LED indicator",
+                "board_model": "Arduino Uno R3",
+            },
         )
     finally:
         if previous is None:
@@ -68,6 +71,25 @@ def test_plan_endpoint_returns_503_when_gemini_is_unconfigured():
 
     assert response.status_code == 503
     assert response.json()["detail"] == "Gemini is not configured. Planning is unavailable."
+
+
+def test_out_of_scope_request_returns_clarification_without_gemini():
+    previous = getattr(app.state, "gemini", None)
+    app.state.gemini = GeminiClient()
+    try:
+        response = _API.post(
+            "/api/plan",
+            json={"project_description": "color-changing LED with Arduino Uno R3"},
+        )
+    finally:
+        if previous is None:
+            del app.state.gemini
+        else:
+            app.state.gemini = previous
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "needs_confirmation"
+    assert response.json()["questions"][0]["id"] == "single_red_led_confirmation"
 
 
 @pytest.mark.parametrize("raw_plan", ["", "This is not JSON", "[]", "{\"status\":\"ready\"}"])
@@ -213,7 +235,7 @@ async def test_gemini_connection_failure_returns_clear_planning_error():
         board_model="Arduino Uno R3",
     )
 
-    with pytest.raises(PlanningError, match="No plan was produced"):
+    with pytest.raises(PlanningError, match="Gemini could not generate a plan"):
         await create_project_plan(request, _FailedGemini())
 
 
@@ -235,7 +257,9 @@ def test_plan_endpoint_returns_503_when_gemini_connection_fails():
             app.state.gemini = previous
 
     assert response.status_code == 503
-    assert response.json() == {"detail": "No plan was produced."}
+    assert response.json() == {
+        "detail": "Gemini could not generate a plan. Check the backend Gemini status, model setting, API key, quota, and connection."
+    }
 
 
 def test_plan_endpoint_returns_503_for_malformed_gemini_output():

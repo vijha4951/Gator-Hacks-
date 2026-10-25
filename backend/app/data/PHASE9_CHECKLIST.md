@@ -9,7 +9,7 @@ This checklist records what is covered and what has actually been run. Test case
 - **LED type omitted** — Correction made in Phase 9. A generic LED request now asks whether one red LED is acceptable instead of silently choosing a color. A frontend action offers that supported scope.
 - **Board required but omitted** — Covered. When the request says the board must be used but gives no model, the planner asks which board; it does not assume Uno R3.
 - **Unsupported request** — Covered with an RGB, battery, and transistor example. Expected result is `needs_confirmation` with no parts or build stages presented as a complete plan.
-- **Malformed Gemini response or failed Gemini connection** — Covered at the service level and with endpoint checks. Expected API result is HTTP 503 with `No plan was produced.`; no partial plan is returned.
+- **Malformed Gemini response or failed Gemini connection** — Covered at the service level and with endpoint checks. Malformed output returns HTTP 503 with `No plan was produced.` A Gemini service failure returns HTTP 503 with a safe message pointing to status, model, key, quota, and connection checks. Neither case returns a partial plan.
 - **Forbidden detail** — Covered for pin numbers, complete Arduino code, and wire-by-wire connection directions. The validator should reject these rather than return them as plan instructions.
 
 ## Execution and reader review

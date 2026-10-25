@@ -25,8 +25,8 @@ Settings load from a private `.env` file in `backend/` or the repository root. K
 
 | Setting | Default | Use |
 |---|---|---|
-| `GEMINI_API_KEY` | unset | Required for `POST /api/plan`; optional for circuit explanations. |
-| `GEMINI_MODEL` | `gemini-3.5-flash` | Gemini model name. |
+| `GEMINI_API_KEY` | unset | Required for model-generated `POST /api/plan` results; scope clarifications work without it. Optional for circuit explanations. |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Gemini model name. This default is chosen for lower response time; set it explicitly in `.env` to use a different supported model. |
 | `SIMULATOR` | `physbox` | Use `physbox` for Volt or `mock` for an offline Ohm's-law estimate. |
 | `PHYSBOX_MCP_COMMAND` | detected launcher or Python module | Optional override for the MCP process. |
 | `PHYSBOX_MCP_ARGS` | detected defaults | Optional arguments for the MCP process. |

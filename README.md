@@ -29,7 +29,7 @@ Open the local address printed by Vite, normally `http://localhost:5173`. The fr
 
 ## Configure services
 
-Project planning needs `GEMINI_API_KEY` in a private `.env` file at the repository root or in `backend/`. Keep the key out of frontend variables and source files. If it is missing, circuit analysis can still work, but planning is unavailable.
+Model-generated plans need `GEMINI_API_KEY` in a private `.env` file at the repository root or in `backend/`. Keep the key out of frontend variables and source files. The app can still answer in-scope clarification questions without Gemini; circuit analysis can use its rule-based explanation if Gemini is unavailable.
 
 The default circuit simulator is PhysBox. For a real Volt simulation, install `physbox-mcp` in the Python environment used by FastAPI, keep the PhysBox relay running, and open Volt in a browser. FastAPI starts its own MCP client; a connection established only by a coding assistant is not used by the running app. Check the backend-owned connection at `http://127.0.0.1:8000/api/physbox/status`. The response should report `connected: true` and `volt_reachable: true`.
 
