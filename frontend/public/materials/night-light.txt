@@ -1,0 +1,14 @@
+PROJECT: NIGHT LIGHT
+
+MATERIALS
+- Arduino Uno + USB cable
+- 1 × Light sensor (LDR / photoresistor)
+- 1 × LED (5 mm, white or yellow works well)
+- 1 × 10 kΩ resistor (for the light sensor)
+- 1 × 220 Ω resistor (for the LED)
+- Breadboard
+- 6 × jumper wires (male-to-male)
+
+ALSO NEEDED
+- A computer with the free Arduino IDE installed
+- Optional: 9 V battery + snap connector, so it runs without the computer

@@ -129,12 +129,13 @@ def test_no_resistor_current_is_never_exposed_as_verified(monkeypatch, reported_
     assert asyncio.run(PhysBoxSimulator().measure_led_current_ma(req)) is None
 
 
-def test_unavailable_original_does_not_call_legacy_ai(monkeypatch):
+def test_unavailable_original_uses_nullable_ai(monkeypatch):
     from app.services import ai_agent
     async def run(**kwargs):
         return {"led_current_mA": None if kwargs["resistance_ohms"] == 0 else 13.29}
-    async def explain(*args):
-        raise AssertionError("Legacy AI must not format an unavailable measurement")
+    async def explain(circuit, original, corrected):
+        assert original.current_ma is None
+        return None
     monkeypatch.setattr(led_demo, "run_led_demo", run)
     monkeypatch.setattr(ai_agent, "explain", explain)
     app.dependency_overrides[get_simulator] = PhysBoxSimulator

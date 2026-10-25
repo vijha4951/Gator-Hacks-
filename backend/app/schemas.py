@@ -22,8 +22,22 @@ class AnalyzeResponse(BaseModel): # this is what the frontend gets back after ba
     status: Status
     current_ma: float | None = Field(description="Simulated current in mA; null when no reliable measurement is available")
     warnings: list[str]
+    explanation_source: Literal["gemini", "rules"] = "rules"
     recommendation: str
     # Additions for before/after + provenance
     simulated_with: str
     original: Scenario
     corrected: Scenario | None = None
+
+class ToolCall(BaseModel):
+    tool: str
+    arguments: dict
+    result: dict
+
+
+class AgentAnalyzeResponse(BaseModel):
+    agent_explanation: str
+    tool_calls: list[ToolCall]
+    iterations: int
+    fell_back: bool
+    analysis: AnalyzeResponse

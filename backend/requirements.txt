@@ -6,3 +6,6 @@ httpx
 -r ../simulation/requirements.txt
 
 pyserial==3.5
+
+google-genai==2.33.0
+pytest-asyncio

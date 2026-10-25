@@ -1,9 +1,18 @@
+from pathlib import Path
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.services.simulator import MockSimulator, PhysBoxSimulator, Simulator
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(
+        env_file=(Path(__file__).resolve().parents[1] / ".env",
+                  Path(__file__).resolve().parents[2] / ".env"),
+        extra="ignore",
+    )
+    gemini_api_key: str = Field(default="", repr=False)
+    gemini_model: str = "gemini-3.5-flash"
+    ai_timeout_seconds: float = Field(default=20, gt=0, le=120)
 
     arduino_port: str | None = None  # e.g. /dev/cu.usbmodem11201 or COM3
     simulator: str = "mock"  # set SIMULATOR=physbox in .env when ready

@@ -73,13 +73,12 @@ async def analyze_circuit(req: CircuitRequest, sim: Simulator) -> AnalyzeRespons
     else:
         rec = "Increase the source voltage above the LED's forward voltage."
 
-    # The current explanation interface predates nullable measurements.
-    # Preserve factual fallback text until the AI owner supports unavailable values.
-    if i0 is not None:
-        rec = await ai_agent.explain(req, original, corrected) or rec
+    explanation = await ai_agent.explain(req, original, corrected)
+    rec = explanation or rec
 
     return AnalyzeResponse(
         status=original.status, current_ma=i0, warnings=warnings,
         recommendation=rec, simulated_with=sim.name,
+        explanation_source="gemini" if explanation else "rules",
         original=original, corrected=corrected,
     )

@@ -1,0 +1,17 @@
+PROJECT: STARTER KIT
+
+MATERIALS
+- Arduino Uno + USB cable
+- Breadboard (830 tie points)
+- Jumper wires, assorted (male-to-male and male-to-female)
+- LEDs, assorted colors (red, green, blue, white)
+- Resistor assortment (220 Ω, 330 Ω, 1 kΩ, 10 kΩ)
+- Pushbuttons
+- Light sensor (LDR / photoresistor)
+- Potentiometer (10 kΩ)
+- Piezo buzzer
+- 9 V battery + snap connector
+
+NICE TO HAVE
+- Digital multimeter
+- Small storage box for parts
