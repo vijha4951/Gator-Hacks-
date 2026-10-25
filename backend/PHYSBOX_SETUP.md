@@ -74,3 +74,19 @@ No Arduino sketch changes are required; simulation color does not change a
 physical single-color LED. The current API carries a forward voltage, not a color
 field: the frontend's White option also sends 3 V and is indistinguishable from
 Blue. A distinct white model needs a separate color input and verification.
+
+
+## Vercel browser access
+
+Backend defaults allow https://circuitgaurd.vercel.app, local Vite development,
+and HTTPS deployment/branch URLs scoped to circuitgaurd in gatorhacks-vivi.
+These defaults are committed: no local .env file is required for this project's
+CORS support. Override CORS_ORIGINS or CORS_ORIGIN_REGEX for a different project.
+Do not replace the origin list with an unrestricted wildcard.
+
+The frontend build still needs VITE_API_URL set to a reachable HTTPS backend and
+VITE_USE_MOCK=false. Redeploy after changing build-time variables. A temporary
+Cloudflare tunnel can expire or change address: committing CORS does not make the
+laptop backend permanently hosted. Keep FastAPI, PhysBox, the tunnel, and one Volt
+tab running for the demo. Use a named tunnel with a stable hostname or a persistent
+bridge deployment for a durable setup; the Arduino remains attached to its host.
