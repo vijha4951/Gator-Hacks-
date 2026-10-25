@@ -50,12 +50,17 @@ def _build_user_message(
     corrected: Scenario | None,
 ) -> str:
     """Render the circuit data as a structured plain-text block for the model."""
+    def _ma(value: float | None) -> str:
+        # A missing reading is reported as "Unavailable" so the model never
+        # invents a number (and we never crash formatting None).
+        return "Unavailable" if value is None else f"{value:.2f} mA"
+
     lines = [
         "Circuit simulation data:",
         f"  Source voltage          : {circuit.voltage} V",
         f"  LED forward voltage     : {circuit.led_forward_voltage} V",
         f"  Series resistor         : {original.resistance} Ω",
-        f"  Simulated LED current   : {original.current_ma:.2f} mA",
+        f"  Simulated LED current   : {_ma(original.current_ma)}",
         f"  Circuit status          : {original.status}",  # safe / warning / danger
     ]
 
@@ -64,7 +69,7 @@ def _build_user_message(
             "",
             "Suggested correction:",
             f"  Recommended resistor    : {corrected.resistance:.0f} Ω",
-            f"  Corrected simulated current: {corrected.current_ma:.2f} mA",
+            f"  Corrected simulated current: {_ma(corrected.current_ma)}",
             f"  Corrected status        : {corrected.status}",
         ]
     else:

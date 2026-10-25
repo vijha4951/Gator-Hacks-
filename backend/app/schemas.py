@@ -2,6 +2,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 Status = Literal["safe", "warning", "danger"]
+ExplanationSource = Literal["gemini", "rules"]
 
 
 class CircuitRequest(BaseModel):
@@ -13,18 +14,19 @@ class CircuitRequest(BaseModel):
 
 class Scenario(BaseModel):
     resistance: float
-    current_ma: float
+    current_ma: float | None  # None when the simulator could not produce a reading
     status: Status
 
 
 class AnalyzeResponse(BaseModel): # this is what the frontend gets back after backend does its thing
     # Fields from the original contract (unchanged, so the frontend works)
     status: Status
-    current_ma: float
+    current_ma: float | None  # None when the simulator could not produce a reading
     warnings: list[str]
     recommendation: str
     # Additions for before/after + provenance
     simulated_with: str
+    explanation_source: ExplanationSource  # "gemini" if the LLM wrote it, else "rules"
     original: Scenario
     corrected: Scenario | None = None
 

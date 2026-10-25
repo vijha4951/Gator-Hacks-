@@ -114,6 +114,15 @@ Click `POST /api/analyze` → **Try it out**, enter a body like:
 and **Execute**. The `resistance: 0` case is the "forgot the resistor" demo — you
 should get a **danger** verdict and a suggested resistor to fix it.
 
+Two response fields make the result easy to verify:
+
+- `explanation_source` is `"gemini"` when the recommendation text came from the
+  LLM, or `"rules"` when it came from the built-in rule-based advice (Gemini
+  unconfigured, failed, or timed out). This is the clean way to confirm which
+  path produced the answer.
+- `current_ma` is `null` when the simulator ran but could not produce a reading;
+  the recommendation text then reports the current as "Unavailable".
+
 Health check:
 
 ```
