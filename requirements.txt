@@ -3,7 +3,4 @@
 # the repo root installs the correct, pinned set.
 #
 #   pip install -r backend/requirements.txt
-#
-# The standalone PhysBox prototype under simulation/ has its own, separate
-# deps in simulation/requirements.txt (run it in its own virtualenv).
 -r backend/requirements.txt

@@ -1,25 +1,28 @@
 # Run the backend with PhysBox
 
 Run these commands from the repository root (not inside backend/).
-Use the existing simulation virtual environment:
+
+Install the backend dependencies (use a virtual environment of your choice):
 
 ```bash
-simulation/.venv/bin/python -m pip install -r backend/requirements.txt
+pip install -r backend/requirements.txt
 ```
 
-Leave the PhysBox MCP server running in a separate terminal:
+Leave the PhysBox MCP relay running in a separate terminal:
 
 ```bash
-simulation/.venv/bin/physbox-mcp
+physbox-mcp
 ```
 
-Keep exactly one https://volt.physbox.io tab open on this Mac and allow local
-access. Save other circuit work: requests replace the Volt canvas.
+Keep exactly one https://volt.physbox.io tab open and allow local access.
+Save other circuit work: requests replace the Volt canvas. Only one process
+should start the relay — if your coding assistant already runs physbox-mcp,
+free its port first (see the connection troubleshooting below).
 
 Start FastAPI from the repository root:
 
 ```bash
-SIMULATOR=physbox simulation/.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --workers 1
+SIMULATOR=physbox python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --workers 1
 ```
 
 Then send a real request:
@@ -31,18 +34,25 @@ curl http://127.0.0.1:8000/api/analyze -H 'Content-Type: application/json' -d '{
 Expect `simulated_with: "physbox"`, `status: "safe"`, and about 8.99 mA
 (model versions can affect results). This is a local browser-backed integration.
 The bridge returns actual LED current in mA and converts simulation failures to
-HTTP 502, without silently using the mock. Zero resistance and non-2.0 LED
-forward-voltage requests are explicitly unsupported until their models are verified.
-The fixed 2 V parameter describes the selected model; the measured LED voltage
-can differ. It is not an ideal fixed-drop diode.
+HTTP 502, without silently using the mock.
 
-Calls are serialized within this process. Use one worker, one server instance,
-and do not run the CLI demo during API requests. Multiple workers/machines do
-not share this lock. Keep Volt visible while running simulations.
-`SIMULATOR=mock` remains available for existing development tests.
-
-Run tests from the repository root:
+Check the connection at any time:
 
 ```bash
-SIMULATOR=mock PYTHONPATH=backend:. simulation/.venv/bin/python -m pytest backend/tests
+curl http://127.0.0.1:8000/api/physbox/status
+```
+
+A healthy response has `connected: true` and `volt_reachable: true`. On failure
+it returns HTTP 503 with the cause (relay not running, port in use, or Volt
+tab not open).
+
+Calls are serialized within this process. Use one worker and one server
+instance. Multiple workers/machines do not share this lock. Keep Volt visible
+while running simulations. `SIMULATOR=mock` remains available for offline
+development and runs the test suite without Volt.
+
+Run tests from the backend folder:
+
+```bash
+python -m pytest
 ```

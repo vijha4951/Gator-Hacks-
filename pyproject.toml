@@ -1,36 +1,32 @@
 [project]
 name = "gator-hacks"
 version = "0.1.0"
-description = "A hackathon project with FastAPI, MCP, and OpenAI integration"
+description = "CircuitGuard AI — a FastAPI backend that checks LED circuits with PhysBox (Volt) simulation and Gemini explanations"
 readme = "README.md"
 authors = [
     { name = "An Tran", email = "antuantran233@gmail.com" }
 ]
 requires-python = ">=3.10"
+# Runtime dependencies for the backend app. The exact pinned versions used in
+# development live in backend/requirements.txt; install with:
+#   pip install -r backend/requirements.txt
 dependencies = [
     "fastapi>=0.162.0",
-    "loguru>=0.7.3",
-    "mcp[cli]>=2.3.0",
-    "openai>=3.37.0",
-    "pydantic>=2.14.1",
-    "python-dotenv>=1.2.4",
-    "tenacity>=9.2.1",
-    "typer>=0.12.0",
-    "uvicorn>=0.54.0",
+    "uvicorn[standard]>=0.54.0",
+    "pydantic-settings>=2.16.1",
+    "google-genai>=2.33.0",
+    "mcp>=2.3.0",
+    "physbox-mcp>=0.44.1",
 ]
-
-[project.scripts]
-gator-hacks = "gator_hacks.cli:main"
-
-[build-system]
-requires = ["setuptools>=68.0"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28.1",
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "httpx>=0.28.1",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
