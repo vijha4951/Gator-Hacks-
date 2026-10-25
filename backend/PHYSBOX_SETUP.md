@@ -48,8 +48,8 @@ original current null, recommended 220 ohms, and about 13.29 mA corrected curren
 A simulated corrected result is not a physical measurement or full safety assessment.
 `simulated_with: "physbox"` identifies the simulation provider, not a guarantee that
 every current is available. Connection/solver failures still return HTTP 502.
-The legacy AI explanation function is skipped for unavailable original currents;
-rule-based advice is used until the AI owner supports nullable measurements.
+Gemini receives unavailable original currents as unavailable, not zero. AI failures
+use rule-based advice; explanation_source identifies which was returned.
 
 Calls are serialized within this process. Use one worker, one server instance,
 and do not run the CLI during API requests. Multiple workers do not share this lock.
@@ -72,8 +72,7 @@ LED's datasheet values. A corrected circuit preserves the selected LED model.
 The CLI supports --led-forward-voltage 2.2 or --led-forward-voltage 3.
 No Arduino sketch changes are required; simulation color does not change a
 physical single-color LED. The current API carries a forward voltage, not a color
-field: the frontend's White option also sends 3 V and is indistinguishable from
-Blue. A distinct white model needs a separate color input and verification.
+field. A distinct white model needs a separate color input and verification.
 
 
 ## Vercel browser access
@@ -90,3 +89,5 @@ Cloudflare tunnel can expire or change address: committing CORS does not make th
 laptop backend permanently hosted. Keep FastAPI, PhysBox, the tunnel, and one Volt
 tab running for the demo. Use a named tunnel with a stable hostname or a persistent
 bridge deployment for a durable setup; the Arduino remains attached to its host.
+
+For Windows PowerShell setup and team validation, see ../WINDOWS_HANDOFF.md.

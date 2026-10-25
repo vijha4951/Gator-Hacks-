@@ -52,3 +52,5 @@ cd frontend
 npm ci
 npm run build
 ```
+
+Windows agent setup and validation: [WINDOWS_HANDOFF.md](WINDOWS_HANDOFF.md).
