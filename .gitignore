@@ -6,3 +6,14 @@ dist
 .env
 .env.*
 !.env.example
+
+# Secrets — explicit, including nested (the root .env rules don't cover subdirs)
+backend/.env
+**/.env
+!**/.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
