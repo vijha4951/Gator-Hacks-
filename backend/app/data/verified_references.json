@@ -1,0 +1,168 @@
+{
+  "version": "1.1",
+  "project_scope": {
+    "example_name": "Color-changing LED with Arduino Uno R3",
+    "supported_v1_project": "One red LED in series with one current-limiting resistor, powered by a positive DC source and ground.",
+    "board": "Arduino Uno R3",
+    "board_scope_note": "The board name is accepted for the first planning example only. This reference does not establish any Uno R3 electrical capability or circuit compatibility."
+  },
+  "verified": {
+    "board": {
+      "name": "Arduino Uno R3",
+      "accepted_for_first_planning_example": true,
+      "source": "Phase 1 scope decision"
+    },
+    "components": [
+      {
+        "id": "red_led",
+        "name": "Red LED",
+        "purpose": "Visible indicator",
+        "typical_quantity": 1,
+        "facts": {
+          "color": "red",
+          "model_forward_voltage_v": 2.0,
+          "maximum_current_ma": 20,
+          "safety_current_band_ma": {
+            "minimum_inclusive": 1,
+            "maximum_inclusive": 20,
+            "target_approximate": 15
+          }
+        },
+        "source": ["led_220.json", "backend/app/services/simulator.py", "backend/app/services/analysis.py"]
+      },
+      {
+        "id": "series_resistor",
+        "name": "Series current-limiting resistor",
+        "purpose": "Limit current through the LED",
+        "typical_quantity": 1,
+        "facts": {
+          "required": true,
+          "zero_ohms_classification": "danger",
+          "preferred_value_series": "E12",
+          "values_exercised_at_5v_ohm": [220, 330]
+        },
+        "source": ["backend/app/services/analysis.py", "simulation demo"]
+      },
+      {
+        "id": "dc_source",
+        "name": "DC voltage source",
+        "purpose": "Provide the positive supply for the series circuit",
+        "typical_quantity": 1,
+        "facts": {
+          "polarity": "positive DC relative to ground",
+          "voltage_used_in_verified_demo_v": 5
+        },
+        "source": ["led_220.json", "backend/app/services/simulator.py"]
+      }
+    ],
+    "simulator": {
+      "supported_measurement": "Simulated current through the modeled red LED circuit",
+      "physical_build_verified": false,
+      "arduino_pin_behavior_modeled": false,
+      "source": ["backend/app/services/simulator.py", "backend/app/services/analysis.py"]
+    }
+  },
+  "unknown": [
+    {
+      "id": "uno_pin_current_limits",
+      "subject": "Arduino Uno R3 pin current limits",
+      "value": null,
+      "why_it_matters": "A pin limit is needed before making claims about current supplied by a board pin.",
+      "planner_action": "Ask for a verified source or label Needs confirmation; do not assign a pin or claim pin compatibility."
+    },
+    {
+      "id": "uno_5v_regulator_rating",
+      "subject": "Arduino Uno R3 5 V regulator rating",
+      "value": null,
+      "why_it_matters": "The board's ability to provide a planned load cannot be inferred from the 5 V circuit simulation.",
+      "planner_action": "Label Needs confirmation; do not claim that the board can supply the circuit current."
+    },
+    {
+      "id": "uno_usb_vs_external_supply",
+      "subject": "Uno R3 USB versus external supply behavior and limits",
+      "value": null,
+      "why_it_matters": "The supply path may change the applicable limits and is outside the verified 5 V simulator example.",
+      "planner_action": "Ask which supply is intended if it affects the plan; otherwise label Needs confirmation and do not give USB or external-supply advice."
+    },
+    {
+      "id": "uno_recommended_pins",
+      "subject": "Recommended Arduino Uno R3 pins for this project",
+      "value": null,
+      "why_it_matters": "Pin mapping has not been verified and the simulator does not model Arduino pin behavior.",
+      "planner_action": "Do not provide pin numbers; label Needs confirmation if the user asks."
+    },
+    {
+      "id": "direct_led_drive_without_resistor",
+      "subject": "Driving an LED directly without a series resistor",
+      "value": null,
+      "why_it_matters": "The supported circuit requires a current-limiting resistor; direct-drive behavior and board limits are not verified.",
+      "planner_action": "Do not recommend direct drive. State that the series resistor is required in this scope."
+    },
+    {
+      "id": "actual_led_identity_and_forward_voltage",
+      "subject": "User's physical LED part number and actual forward voltage",
+      "value": null,
+      "why_it_matters": "The reference's 2.0 V is a model value and may not describe the user's specific LED.",
+      "planner_action": "Label Needs confirmation; do not present the model value as the measured value of the user's part."
+    },
+    {
+      "id": "resistor_power_rating",
+      "subject": "Series resistor wattage rating",
+      "value": null,
+      "why_it_matters": "No resistor power rating has been verified for the user's physical part.",
+      "planner_action": "Label Needs confirmation; do not claim a resistor is physically suitable without its rating."
+    },
+    {
+      "id": "exact_resistance_for_user_circuit",
+      "subject": "Exact resistor value for the user's actual supply and LED",
+      "value": null,
+      "why_it_matters": "The correct value depends on confirmed supply voltage and the actual LED forward voltage; 220 Ω and 330 Ω are only values exercised in the 5 V demo.",
+      "planner_action": "Ask for the supply and LED details or label Needs confirmation; do not treat a demo value as universally correct."
+    },
+    {
+      "id": "uno_5v_pin_load_capability",
+      "subject": "Whether the Uno R3 5 V pin can supply the planned current",
+      "value": null,
+      "why_it_matters": "No Uno R3 supply-pin rating is established by the circuit simulation.",
+      "planner_action": "Label Needs confirmation and do not claim the Uno 5 V pin can power the load."
+    }
+  ],
+  "unsupported": [
+    {
+      "id": "multicolor_leds",
+      "items": ["RGB LEDs", "WS2812/NeoPixel strips", "multi-color LEDs", "addressable LEDs"],
+      "reason": "Not part of the verified single-red-LED v1 scope."
+    },
+    {
+      "id": "pin_maps_and_firmware",
+      "items": ["exact pin assignments", "wire-by-wire diagrams", "complete Arduino sketches", "Arduino digital/PWM output modeling"],
+      "reason": "Pin behavior and firmware are not verified by this scope or simulator."
+    },
+    {
+      "id": "expanded_circuits",
+      "items": ["multiple LEDs", "transistors", "drivers", "level shifting"],
+      "reason": "Not included in the verified circuit."
+    },
+    {
+      "id": "power_and_physical_layout_advice",
+      "items": ["battery power", "USB power details beyond the 5 V rail assumption", "breadboard layout advice that invents ratings"],
+      "reason": "These details have not been verified for the physical build."
+    },
+    {
+      "id": "shopping_details",
+      "items": ["prices", "part numbers", "shopping lists"],
+      "reason": "No approved current source has been supplied."
+    },
+    {
+      "id": "physical_safety_claims",
+      "items": ["claims that simulated results prove a physical build is safe"],
+      "reason": "Simulation covers only the modeled circuit and cannot inspect the physical build."
+    }
+  ],
+  "pricing": {
+    "status": "omitted",
+    "source": null,
+    "checked_date": null
+  },
+  "planner_rule": "Load this file, use only verified facts, and for every unknown item ask a relevant question or label it Needs confirmation. Never invent pin maps, programs, electrical ratings, or prices."
+}

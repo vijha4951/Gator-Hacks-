@@ -1,159 +1,58 @@
 # CircuitGuard AI — Backend
 
-A small web service that checks whether a simple LED circuit is safe and, when it
-isn't, suggests a fix and explains it in plain language.
+FastAPI service for CircuitGuard's structured project planner and simulated LED circuit check.
 
-You give it three numbers — source voltage, series resistance, and the LED's
-forward voltage — and it tells you whether the circuit is **safe**, a **warning**
-(too dim), or **danger** (the LED will burn out). If it's not safe, it recommends
-a real resistor value you can actually buy and re-checks that the fix works.
+## Start the backend
 
-## What's here
-
-| Path | Role |
-|---|---|
-| `app/main.py` | Starts the web server and wires everything together |
-| `app/routers/analyze.py` | The `/api/analyze` endpoint |
-| `app/services/analysis.py` | The decision logic: classify, suggest a fix, explain |
-| `app/services/simulator.py` | Works out the LED current (mock today, real PhysBox later) |
-| `app/services/ai_agent.py` | Optional Gemini-written explanation, with a safe fallback |
-| `app/schemas.py` | The shape and validation rules for requests and responses |
-| `app/config.py` | Settings loaded from `.env` |
-| `tests/` | The test suite |
-
-## Requirements
-
-- Python 3.10+ (the repo pins 3.15 via `.python-version`)
-- The packages in `requirements.txt`
-
-Install them:
+From the repository root:
 
 ```powershell
-pip install -r requirements.txt
+uv sync --dev
+uv run uvicorn app.main:app --app-dir backend --reload
 ```
 
-## Configuration
-
-Settings are read from a `.env` file. Copy the example and fill it in:
-
-```powershell
-copy .env.example .env
-```
-
-Keys:
-
-| Key | Default | Meaning |
-|---|---|---|
-| `SIMULATOR` | `physbox` | `physbox` builds and runs the LED circuit in Volt. Set `mock` for the offline Ohm's-law estimate. |
-| `GEMINI_API_KEY` | _(unset)_ | Optional. If set, explanations are written by Gemini. If unset, a built-in rule-based sentence is used instead. |
-| `GEMINI_MODEL` | `gemini-3.5-flash` | Optional override for the model name. |
-| `PHYSBOX_MCP_COMMAND` | Installed launcher, otherwise current Python | Optional executable override for starting PhysBox MCP. |
-| `PHYSBOX_MCP_ARGS` | `--stdio` (launcher) or `-m physbox_mcp.server --stdio` (Python) | Arguments passed to PhysBox MCP. |
-
-The `.env` file is found whether it sits in `backend/` or at the repo root, so the
-app works no matter which folder you launch it from.
-
-### Connect FastAPI to PhysBox
-
-Install the PhysBox companion executable in the same environment used to run
-FastAPI, open Volt in a browser, and keep the local PhysBox relay available:
-
-```powershell
-pip install physbox-mcp
-```
-
-FastAPI starts its own PhysBox MCP stdio client on application startup. This
-is separate from the coding assistant's MCP connection, but both can use the
-same local relay and open Volt tab. Check the app-owned connection (and make a
-read-only Volt state request) at:
-
-```
-http://127.0.0.1:8000/api/physbox/status
-```
-
-A successful response includes `connected: true`, `volt_reachable: true`, the
-advertised circuit tool names, and the state returned by `circuit_get_state`.
-The endpoint returns HTTP 503 with a useful error if the MCP server or Volt
-tab cannot be reached.
-
-`POST /api/analyze` now builds a voltage source → optional resistor → LED →
-ground circuit from the request, validates it, runs Volt, and reads the LED's
-`current_array` from the returned component state. Volt reports that array in
-amperes; the API converts its final transient sample to milliamps. Requests are
-serialized because Volt has one shared active circuit. The current-circuit
-definition is replaced by each analyze request.
-
-## Run the server
-
-From the `backend` folder:
+Or, after activating the project's Python environment, from `backend/`:
 
 ```powershell
 uvicorn app.main:app --reload
 ```
 
-`--reload` restarts the server automatically when you edit a file. When it starts
-you'll see `Uvicorn running on http://127.0.0.1:8000`.
+The API docs are at `http://127.0.0.1:8000/docs`; `GET /health` returns `{"ok": true}`.
 
-> Run this in your own terminal. It's a long-running process and won't stop on its
-> own until you press Ctrl+C.
+## Configuration
 
-## Try it
+Settings load from a private `.env` file in `backend/` or the repository root. Keep secrets out of the frontend and Git.
 
-Open the interactive API docs in a browser:
+| Setting | Default | Use |
+|---|---|---|
+| `GEMINI_API_KEY` | unset | Required for `POST /api/plan`; optional for circuit explanations. |
+| `GEMINI_MODEL` | `gemini-3.5-flash` | Gemini model name. |
+| `SIMULATOR` | `physbox` | Use `physbox` for Volt or `mock` for an offline Ohm's-law estimate. |
+| `PHYSBOX_MCP_COMMAND` | detected launcher or Python module | Optional override for the MCP process. |
+| `PHYSBOX_MCP_ARGS` | detected defaults | Optional arguments for the MCP process. |
 
-```
-http://127.0.0.1:8000/docs
-```
+## PhysBox / Volt connection
 
-Click `POST /api/analyze` → **Try it out**, enter a body like:
+The FastAPI application starts its own PhysBox MCP client. Install PhysBox MCP in the same Python environment and keep the relay running; open Volt in a browser so it can connect to that relay. The coding assistant's MCP connection alone does not connect the backend.
 
-```json
-{ "voltage": 5, "resistance": 0, "led_forward_voltage": 2.0 }
-```
+Check `GET /api/physbox/status`. A working connection reports `connected: true` and `volt_reachable: true`. The endpoint runs a read-only circuit-state request to confirm that Volt responds.
 
-and **Execute**. The `resistance: 0` case is the "forgot the resistor" demo — you
-should get a **danger** verdict and a suggested resistor to fix it.
+`POST /api/analyze` replaces the active Volt circuit with a voltage source, optional resistor, red LED, and ground; validates it; runs the simulator; and reads the LED's current measurement. Volt reports amperes, which the API converts to milliamps. Requests are serialized because Volt has one active circuit. A resistor value of zero is supported for the missing-resistor demonstration.
 
-Two response fields make the result easy to verify:
+When `SIMULATOR=mock`, the backend calculates an estimate using Ohm's law. Its response reports `simulated_with: "mock"`; do not describe it as a PhysBox result. The frontend labels it accordingly.
 
-- `explanation_source` is `"gemini"` when the recommendation text came from the
-  LLM, or `"rules"` when it came from the built-in rule-based advice (Gemini
-  unconfigured, failed, or timed out). This is the clean way to confirm which
-  path produced the answer.
-- `current_ma` is `null` when the simulator ran but could not produce a reading;
-  the recommendation text then reports the current as "Unavailable".
+## Planning endpoint
 
-Health check:
+`POST /api/plan` accepts `PlanRequest` and returns a validated `PlanResponse`. The planner loads the trusted reference JSON, sends rules separately from the request/reference contents, asks Gemini for JSON, then checks the response against the supported scope. Missing configuration, model errors, missing reference data, or invalid output produce an error response; the backend does not substitute a made-up plan.
 
-```
-http://127.0.0.1:8000/health
-```
+Planning accepts Arduino Uno R3 as the named board, but does not claim board pin limits or model board behavior. See `app/data/PLAN_CONTRACT.md`, `app/data/VERIFIED_REFERENCES.md`, and `app/data/PHASE4_PLANNER_GEMINI.md` for the contract, verified information, and planning service notes.
 
-returns `{"ok": true}`.
+## API routes
 
-### From the command line instead
+- `GET /health`
+- `GET /api/gemini/status`
+- `GET /api/physbox/status`
+- `POST /api/plan`
+- `POST /api/analyze`
 
-```powershell
-curl.exe -X POST http://127.0.0.1:8000/api/analyze -H "Content-Type: application/json" -d '{\"voltage\":5,\"resistance\":0,\"led_forward_voltage\":2.0}'
-```
-
-## Run the tests
-
-```powershell
-python -m pytest
-```
-
-The tests run offline and do not make real network or AI calls.
-
-## Notes and current limitations
-
-- `SIMULATOR=mock` computes current with Ohm's law. It is for offline development
-  and must not be described as a PhysBox simulation.
-- `SIMULATOR=physbox` replaces the active Volt schematic with the request's LED
-  circuit, runs SPICE, and reads the simulated LED current. Keep the Volt tab
-  open and connected to the PhysBox relay.
-- **No frontend yet.** The server allows a web page served from
-  `http://localhost:5173` (the Vite default) to call it, but that page doesn't
-  exist in this repo. Use the `/docs` page or curl in the meantime.
-- **AI is optional and fails safe.** If the Gemini key is missing or the call
-  fails, you still get a sensible rule-based recommendation.
+For the end-to-end demo, see the repository's `DEMO_GUIDE.md`.

@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.schemas import CircuitRequest, Scenario
+from app.schemas import CircuitRequest, PlanResponse, Scenario
 
 logger = logging.getLogger(__name__)
 
@@ -208,3 +208,28 @@ class GeminiClient:
                 exc,
             )
             return None
+
+    async def generate_json_plan(
+        self, *, user_message: str, system_instruction: str
+    ) -> str:
+        """Ask Gemini for a schema-shaped project plan as JSON text.
+
+        The application backend owns this call and the API key. Parsing and
+        validation happen in the planner service so malformed output cannot
+        become a user-facing plan.
+        """
+        if not self.configured:
+            raise RuntimeError("Gemini client is not configured.")
+
+        from google.genai import types
+
+        response = await self._client.aio.models.generate_content(
+            model=self._model,
+            contents=user_message,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                response_mime_type="application/json",
+                response_schema=PlanResponse,
+            ),
+        )
+        return (response.text or "").strip()

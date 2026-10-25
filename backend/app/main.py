@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import agent, analyze, gemini, physbox
+from app.routers import agent, analyze, gemini, physbox, plan
 from app.services.ai_agent import GeminiClient
 from app.services.physbox_client import PhysBoxMCPClient
 
@@ -70,6 +70,7 @@ app.include_router(analyze.router)
 app.include_router(physbox.router)
 app.include_router(gemini.router)
 app.include_router(agent.router)
+app.include_router(plan.router)
 
 
 @app.get("/health")
