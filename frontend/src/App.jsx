@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { analyzeCircuit, setLed as sendLed, setRgb, followSwitch, getSwitch } from "./api";
+import LOGO from "./logo";
 
 const Go = createContext(() => {});
 const Slots = createContext({ head: null, dock: null, backX: 96 });
@@ -72,7 +73,7 @@ function Type({ text, speed = 30 }) {
   return <span onClick={() => setN(text.length)}>{text.slice(0, n)}{n >= text.length && <span className="caret">▼</span>}</span>;
 }
 
-const Page = ({ children, lamp = "", back, title, step, action, onGo, goDisabled, ask = true, bar }) => {
+const Page = ({ children, lamp = "", back, title, step, action, onGo, goDisabled, ask = false, bar }) => {
   const go = useContext(Go);
   const { head, dock, backX } = useContext(Slots);
   return (
@@ -81,7 +82,7 @@ const Page = ({ children, lamp = "", back, title, step, action, onGo, goDisabled
         <>
           <div className="a hd" />
           <div className={"a lamp " + lamp}>{lamp === "issue" ? "!" : lamp === "ok" ? "✓" : lamp === "warn" ? "?" : lamp === "work" || lamp === "on" ? "⚡" : ""}</div>
-          <img className="a logo" src={A("logo")} alt="CircuitGuard" />
+          <span className="a logo" role="img" aria-label="CircuitGuard" dangerouslySetInnerHTML={{ __html: LOGO }} />
           <img className="a bolt" src={A("bolt")} />
         </>, head)}
       {dock && createPortal(
@@ -130,6 +131,11 @@ const parseMaterials = (txt) => {
 export default function App() {
   const [scr, setScr] = useState("home");
   const [sel, setSel] = useState(0);
+  const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const [boot, setBoot] = useState(() => { try { return !reduced && !sessionStorage.getItem("cg-booted"); } catch { return !reduced; } });
+  const [zap, setZap] = useState(false);
+  const [sound, setSound] = useState(false);
+  const audio = useRef(null);
   const [volts, setVolts] = useState("5");
   const [ohms, setOhms] = useState("100");
   const [led, setLed] = useState("Red");
@@ -175,6 +181,22 @@ export default function App() {
     return combineRgb(await Promise.all(RGB.map((ch) => analyzeCircuit({ ...base, led_forward_voltage: ch.vf }).then((res) => ({ ...ch, res })))));
   };
   const go = (s) => setScr(s);
+  const beep = (f = 880, ms = 40) => {
+    if (!sound || !audio.current) return;
+    const a = audio.current, o = a.createOscillator(), g = a.createGain();
+    o.type = "square"; o.frequency.value = f; g.gain.value = 0.04;
+    o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + ms / 1000);
+  };
+  const pick = (i) => { if (i !== sel) beep(880); setSel(i); };
+  const zapGo = (to) => {
+    if (reduced) return go(to);
+    beep(1320, 70); setZap(true);
+    setTimeout(() => { setZap(false); go(to); }, 170);
+  };
+  const toggleSound = () => {
+    try { if (!audio.current) audio.current = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+    setSound((v) => !v);
+  };
   const { w, h } = win;
   const scale = Math.max(0.4, Math.min(1.4, (w - 52) / 1388, Math.max(1, (h - 344) / 768)));
   // The content block is centred on wide windows. Put the back arrow (and title) in line with the header lamp instead.
@@ -188,17 +210,27 @@ export default function App() {
     return () => removeEventListener("resize", fit);
   }, []);
 
-  // home: arrow keys + Enter
+  // boot: plays once per session, any key or click skips it
   useEffect(() => {
-    if (scr !== "home") return;
+    if (!boot) return;
+    try { sessionStorage.setItem("cg-booted", "1"); } catch {}
+    const end = () => setBoot(false);
+    const t = setTimeout(end, 1700);
+    addEventListener("keydown", end, { once: true }); addEventListener("pointerdown", end, { once: true });
+    return () => { clearTimeout(t); removeEventListener("keydown", end); removeEventListener("pointerdown", end); };
+  }, [boot]);
+
+  // home: arrow keys + Enter (big card on the left, two small ones stacked on the right)
+  useEffect(() => {
+    if (scr !== "home" || boot) return;
     const k = (e) => {
-      if (e.key === "ArrowRight") setSel((s) => Math.min(2, s + 1));
-      if (e.key === "ArrowLeft") setSel((s) => Math.max(0, s - 1));
-      if (e.key === "Enter") go(["check", "uno_off", "chat"][sel]);
+      const next = { ArrowRight: sel === 0 ? 1 : sel, ArrowLeft: 0, ArrowDown: sel === 1 ? 2 : sel, ArrowUp: sel === 2 ? 1 : sel }[e.key];
+      if (next !== undefined) { e.preventDefault(); pick(next); }
+      if (e.key === "Enter") zapGo(["check", "uno_off", "chat"][sel]);
     };
     addEventListener("keydown", k);
     return () => removeEventListener("keydown", k);
-  }, [scr, sel]);
+  }, [scr, sel, boot, sound]);
 
   // scanning auto-advances
   useEffect(() => {
@@ -298,19 +330,44 @@ export default function App() {
   const screens = {
     home: (
       <Page ask={false}>
+        <svg className="a traces" style={{ left: 0, top: 112 }} width="1440" height="760" viewBox="0 0 1440 760" fill="none" aria-hidden="true">
+          {[
+            "M760 80H880L900 60H1060",
+            "M1060 60h24c0-14 18-14 18 0s18-14 18 0 18-14 18 0 18-14 18 0H1340",
+            "M26 410H70L96 384",
+            "M856 410H876V300",
+            "M26 560H58V300L78 280",
+          ].map((d, i) => (
+            <g key={i}>
+              <path d={d} className="tr" />
+              <path d={d} className="pulse" pathLength="1" style={{ animationDelay: `${i * 0.9}s` }} />
+            </g>
+          ))}
+          {[[880, 80], [1060, 60], [1340, 60], [70, 410], [876, 300], [78, 280]].map(([x, y]) => <circle key={x + "" + y} cx={x} cy={y} r="5" className="pad" />)}
+        </svg>
         <h2 className="a px" style={{ left: 96, top: 170, fontSize: 18, margin: 0 }}>START</h2>
-        <p className="a" style={{ left: 96, top: 256, fontSize: 24, margin: 0 }}>Choose your next step.</p>
-        {[[ICON.cam, "CHECK MY CIRCUIT", "Check values and find problems.", "check"],
-          [ICON.uno, "CONNECT UNO", "Control a real LED from here.", "uno_off"],
-          [ICON.chat, "PLAN A PROJECT", "Get parts and a plan from AI.", "chat"]].map(([ic, t, d, to], i) => (
-          <button key={t} className={"a choice click" + (sel === i ? " sel" : "")} style={{ left: 96 + i * 429, top: 304 }}
-            onMouseEnter={() => setSel(i)} onFocus={() => setSel(i)} onClick={() => go(to)}>
+        <div className="a dlg" style={{ left: 88, top: 228, width: 1264, height: 86 }}>
+          <div style={{ padding: "14px 24px" }}>{!boot && <Type text="Welcome! What are we checking today?" />}</div></div>
+        <button className={"a hero click" + (sel === 0 ? " sel" : "")} style={{ left: 96, top: 342, width: 740, height: 290 }}
+          onMouseEnter={() => pick(0)} onFocus={() => pick(0)} onClick={() => zapGo("check")}>
+          <svg className="current" viewBox="0 0 740 290" preserveAspectRatio="none" aria-hidden="true"><rect x="2" y="2" width="736" height="286" rx="14" pathLength="1" /></svg>
+          <div className="tile big">{ICON.cam}
+            <svg className="sparks" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true">
+              <path d="M18 30l10 6-4 6 10 6" /><path d="M130 22l-8 10 6 3-8 10" /><path d="M128 120l-10-4 2-7-10-3" />
+            </svg></div>
+          <h3>{sel === 0 && "▶ "}CHECK MY CIRCUIT</h3>
+          <p>Find problems before anything breaks.</p>
+        </button>
+        {[[ICON.uno, "CONNECT UNO", "Control a real LED.", "uno_off", 342], [ICON.chat, "PLAN A PROJECT", "Parts and a plan from AI.", "chat", 498]].map(([ic, t, d, to, top], j) => (
+          <button key={t} className={"a side click" + (sel === j + 1 ? " sel" : "")} style={{ left: 876, top, width: 468, height: 134 }}
+            onMouseEnter={() => pick(j + 1)} onFocus={() => pick(j + 1)} onClick={() => zapGo(to)}>
             <div className="tile">{ic}</div>
-            <h3>{t}</h3><p>{d}</p>
+            <div><h3>{sel === j + 1 && "▶ "}{t}</h3><p>{d}</p></div>
           </button>
         ))}
-        <p className="a" style={{ left: 96, top: 690, fontSize: 20, color: "var(--mute)", margin: 0 }}>No circuit yet? Start with a plan.</p>
-        <p className="a" style={{ left: 880, top: 690, width: 464, textAlign: "right", fontSize: 20, color: "var(--mute)", margin: 0 }}>Arrow keys to choose · Enter to start</p>
+        <p className="a" style={{ left: 96, top: 700, fontSize: 20, color: "var(--mute)", margin: 0 }}>No circuit yet? Start with a plan.</p>
+        <p className="a" style={{ left: 700, top: 700, width: 568, textAlign: "right", fontSize: 20, color: "var(--mute)", margin: 0 }}>Arrow keys · Enter</p>
+        <button className="a snd click" style={{ left: 1284, top: 693 }} aria-pressed={sound} onClick={toggleSound}>{sound ? "♪ ON" : "♪ OFF"}</button>
       </Page>
     ),
     chat: (
@@ -494,14 +551,13 @@ export default function App() {
           {ckt === "rgb" && <div style={{ display: "flex", gap: 14 }}>
             {RGB.map((ch) => <button key={ch.k} className={"chip click" + (rgbOn[ch.k] ? " on" : "")} aria-pressed={rgbOn[ch.k]} onClick={() => toggle(ch.k)}><i style={{ background: ch.color }} />{ch.name}</button>)}
           </div>}
-          <button className="btn sec click" style={{ width: 522, height: 77, marginTop: ckt === "rgb" ? 40 : 110, fontSize: 18 }} onClick={() => go("uno_off")}>RECONNECT</button>
         </div>
       </Page>
     );
   }
   function NoUno() {
     return (
-      <Page lamp="issue" back="home" title="NO UNO" action="RECONNECT" onGo={() => go("uno_off")}>
+      <Page lamp="issue" back="home" title="NO UNO" action="TRY AGAIN" onGo={() => go("uno_off")}>
         <p className="a px" style={{ left: 96, top: 256, width: 640, fontSize: 22, lineHeight: 1.6, margin: 0 }}>Check the USB cable.</p>
         <p className="a" style={{ left: 96, top: 320, fontSize: 26, margin: 0 }}>Close Serial Monitor.</p>
         {unoErr && <p className="a" style={{ left: 96, top: 380, width: 760, fontSize: 20, margin: 0, color: "var(--mute)" }}>{unoErr}</p>}
@@ -512,19 +568,21 @@ export default function App() {
   return (
     <Go.Provider value={go}>
       <Slots.Provider value={{ head, dock, backX }}>
-        <div className="app">
+        <div className={"app" + (boot ? " booting" : "")}>
           <svg className="shell" width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" stroke="#26332C">
             <path d={shellOuter} fill="#F6D64B" strokeWidth="4" />
             <path d={`M26 90H${w - 26}V${h - 88}L${w - 75} ${h - 26}H28L26 90Z`} fill="#FBFAF1" stroke="none" />
             <path d={`M14 90H112L130 76H${w - 16}`} strokeWidth="2" />
-            <path d={`M42 ${h - 56}H82M42 ${h - 48}H74M42 ${h - 40}H66`} strokeWidth="3" />
             <path d={`M${w - 52} ${h - 116}V${h - 80}L${w - 88} ${h - 44}`} strokeWidth="2" />
+            {boot && <path d={shellOuter} className="boot-trace" pathLength="1" />}
           </svg>
           <div className="scroller">
             <div className="canvas" style={{ width: 1388 * scale, height: 768 * scale + 100 }}>
               <div className="stage" style={{ transform: `scale(${scale}) translate(-26px,-112px)` }}>{screens[scr]}</div>
             </div>
           </div>
+          {boot && <div className="boot-dim" aria-hidden="true" />}
+          {zap && <div className="zapflash" aria-hidden="true" />}
           <div className="layer" ref={setHead} />
           <div className="layer" ref={setDock} />
         </div>

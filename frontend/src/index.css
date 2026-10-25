@@ -141,3 +141,60 @@ button{font:inherit;color:inherit}
 .rgb-row .px{font-size:13px;width:92px}
 .rgb-row b{font:700 26px Roboto,sans-serif;font-variant-numeric:tabular-nums;margin-left:auto;white-space:nowrap}
 .rgb-row .fix{min-width:150px;text-align:right;font-size:22px}
+
+
+/* v8: title-screen home, boot and sound (ported from the Figma v6 build) */
+.logo svg{height:100%;width:auto;display:block;overflow:visible}
+/* ---------- HOME: title-screen feel ---------- */
+.traces{pointer-events:none}
+.traces .tr{stroke:var(--ink);stroke-opacity:.14;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.traces .pad{fill:var(--paper);stroke:var(--ink);stroke-opacity:.25;stroke-width:2.5}
+.traces .pulse{stroke:var(--yellow);stroke-width:5;stroke-linecap:round;stroke-dasharray:.05 .95;stroke-dashoffset:1;filter:drop-shadow(0 0 4px var(--yellow));animation:run 5.4s linear infinite}
+@keyframes run{to{stroke-dashoffset:-1}}
+
+.hero{padding:32px 36px;text-align:left;background:var(--yellow);border:2.5px solid var(--ink);border-radius:16px;box-shadow:0 6px 0 var(--ink);display:grid;grid-template-columns:150px 1fr;grid-template-rows:auto auto;column-gap:32px;row-gap:16px;align-content:center;overflow:visible}
+.hero .tile.big{grid-row:1 / span 2;width:150px;height:150px;background:#fff;border-width:2.5px;border-radius:16px;position:relative}
+.hero .tile.big>svg:first-child{width:72px;height:72px}
+.hero h3{font-family:"Press Start 2P",monospace;font-size:24px;margin:0;align-self:end}
+.hero p{font-size:26px;margin:0;align-self:start}
+.hero .current{position:absolute;inset:-2px;width:calc(100% + 4px);height:calc(100% + 4px);pointer-events:none;overflow:visible}
+.hero .current rect{fill:none;stroke:#fffbe0;stroke-width:5;stroke-linecap:round;stroke-dasharray:.1 .9;filter:drop-shadow(0 0 6px #fff3a0);opacity:0}
+.hero.sel .current rect{opacity:1;animation:run 1.6s linear infinite}
+.sparks{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.sparks path{fill:none;stroke:var(--ink);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.hero.sel .sparks path{animation:spark .9s steps(1) infinite}
+.hero.sel .sparks path:nth-child(2){animation-delay:.3s}.hero.sel .sparks path:nth-child(3){animation-delay:.6s}
+@keyframes spark{0%{opacity:1}18%{opacity:0}100%{opacity:0}}
+
+.side{padding:0 28px;display:flex;align-items:center;gap:24px;text-align:left;background:#fff;border:2px solid var(--ink);border-radius:14px;box-shadow:0 4px 0 var(--ink)}
+.side .tile{width:72px;height:72px;flex:none}
+.side .tile svg{width:36px;height:36px}
+.side h3{font-family:"Press Start 2P",monospace;font-size:15px;margin:0 0 10px}
+.side p{font-size:21px;margin:0;color:var(--mute)}
+.side.sel{background:var(--cyan)}.side.sel p{color:var(--ink)}
+
+.snd{height:36px;padding:0 12px;border:2px solid var(--ink);border-radius:8px;background:#fff;font:11px "Press Start 2P",monospace}
+
+/* press = short white-yellow flash */
+.zapflash{position:fixed;inset:0;background:#fff8c8;pointer-events:none;z-index:30;animation:zap .17s ease-out forwards}
+@keyframes zap{from{opacity:.85}to{opacity:0}}
+
+/* ---------- BOOT (first open only) ---------- */
+.boot-dim{position:absolute;left:26px;right:26px;top:112px;bottom:26px;background:var(--ink);z-index:2;pointer-events:none;animation:dim 1.65s ease-in forwards}
+@keyframes dim{0%,70%{opacity:.92}100%{opacity:0}}
+.boot-trace{fill:none;stroke:#fffbe0;stroke-width:6;stroke-dasharray:.12 .88;stroke-dashoffset:.12;filter:drop-shadow(0 0 8px #F6D64B);animation:trace .8s ease-in forwards}
+@keyframes trace{to{stroke-dashoffset:-.88;opacity:.2}}
+.booting .logo .lw{stroke-dasharray:1;stroke-dashoffset:1;animation:wire .7s .45s ease-out forwards}
+.booting .logo .lt{opacity:0;animation:appear .25s 1s forwards}
+.booting .logo svg{animation:glow 1.6s ease-out forwards}
+@keyframes wire{to{stroke-dashoffset:0}}
+@keyframes appear{to{opacity:1}}
+@keyframes glow{0%,60%{filter:drop-shadow(0 0 6px #F6D64B) drop-shadow(0 0 2px #fff)}100%{filter:none}}
+.booting .lamp{animation:lampon .3s 1.15s both}
+@keyframes lampon{0%{transform:scale(.4);background:#8a9490;box-shadow:none}60%{transform:scale(1.25);box-shadow:0 0 16px var(--cyan)}100%{transform:scale(1)}}
+
+@media (prefers-reduced-motion: reduce){
+  .traces .pulse,.hero .current rect,.sparks path{animation:none!important;opacity:0}
+  .zapflash,.boot-dim,.boot-trace{display:none}
+  .caret,.lamp.work{animation:none}
+}
