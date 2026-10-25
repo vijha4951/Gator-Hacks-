@@ -1,22 +1,23 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { analyzeCircuit, setLed as sendLed, setRgb, followSwitch, getSwitch } from "./api";
+import LOGO from "./logo";
 
 const Go = createContext(() => {});
 const Slots = createContext({ head: null, dock: null, backX: 96 });
 
 const A = (n) => `/assets/${n}.svg`;
-const LEDS = { Red: 2, Green: 2.2, Blue: 3, White: 3 };
+const LEDS = { Red: 2, Green: 2.2, Blue: 3 };
 const LIMIT = 20;
 const CIRCUITS = {
   led: { label: "LED + resistor", art: "circuit" },
-  switch: { label: "LED with switch", art: "circuit-switch" },
-  rgb: { label: "RGB LED", art: "circuit-rgb" },
+  switch: { label: "LED with two buttons", art: "circuit-switch" },
+  rgb: { label: "RGB LED (simulation)", art: "circuit-rgb" },
 };
 // Typical RGB LED forward voltages: red ~2 V, green and blue ~3 V.
 const RGB = [
   { k: "r", name: "RED", vf: 2, color: "#E5533D" },
-  { k: "g", name: "GREEN", vf: 3, color: "#54B06B" },
+  { k: "g", name: "GREEN", vf: 2.2, color: "#54B06B" },
   { k: "b", name: "BLUE", vf: 3, color: "#4FA9C7" },
 ];
 const SEV = { safe: 0, warning: 1, danger: 2 };
@@ -37,6 +38,7 @@ function combineRgb(channels) {
     status: worst.res.status, current_ma: worst.res.original.current_ma,
     warnings: channels.flatMap((x) => x.res.warnings),
     recommendation: worst.res.recommendation, simulated_with: worst.res.simulated_with,
+    explanation_source: worst.res.explanation_source,
     original: worst.res.original,
     corrected: fixes.length ? { resistance: Math.max(...fixes.map((x) => x.res.corrected.resistance)), current_ma: null, status: after } : null,
   };
@@ -71,7 +73,7 @@ function Type({ text, speed = 30 }) {
   return <span onClick={() => setN(text.length)}>{text.slice(0, n)}{n >= text.length && <span className="caret">▼</span>}</span>;
 }
 
-const Page = ({ children, lamp = "", back, title, step, action, onGo, goDisabled, ask = true, bar }) => {
+const Page = ({ children, lamp = "", back, title, step, action, onGo, goDisabled, ask = false, bar }) => {
   const go = useContext(Go);
   const { head, dock, backX } = useContext(Slots);
   return (
@@ -80,7 +82,7 @@ const Page = ({ children, lamp = "", back, title, step, action, onGo, goDisabled
         <>
           <div className="a hd" />
           <div className={"a lamp " + lamp}>{lamp === "issue" ? "!" : lamp === "ok" ? "✓" : lamp === "warn" ? "?" : lamp === "work" || lamp === "on" ? "⚡" : ""}</div>
-          <img className="a logo" src={A("logo")} alt="CircuitGuard" />
+          <span className="a logo" role="img" aria-label="CircuitGuard" dangerouslySetInnerHTML={{ __html: LOGO }} />
           <img className="a bolt" src={A("bolt")} />
         </>, head)}
       {dock && createPortal(
@@ -129,6 +131,11 @@ const parseMaterials = (txt) => {
 export default function App() {
   const [scr, setScr] = useState("home");
   const [sel, setSel] = useState(0);
+  const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const [boot, setBoot] = useState(() => { try { return !reduced && !sessionStorage.getItem("cg-booted"); } catch { return !reduced; } });
+  const [zap, setZap] = useState(false);
+  const [sound, setSound] = useState(false);
+  const audio = useRef(null);
   const [volts, setVolts] = useState("5");
   const [ohms, setOhms] = useState("100");
   const [led, setLed] = useState("Red");
@@ -174,6 +181,22 @@ export default function App() {
     return combineRgb(await Promise.all(RGB.map((ch) => analyzeCircuit({ ...base, led_forward_voltage: ch.vf }).then((res) => ({ ...ch, res })))));
   };
   const go = (s) => setScr(s);
+  const beep = (f = 880, ms = 40) => {
+    if (!sound || !audio.current) return;
+    const a = audio.current, o = a.createOscillator(), g = a.createGain();
+    o.type = "square"; o.frequency.value = f; g.gain.value = 0.04;
+    o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + ms / 1000);
+  };
+  const pick = (i) => { if (i !== sel) beep(880); setSel(i); };
+  const zapGo = (to) => {
+    if (reduced) return go(to);
+    beep(1320, 70); setZap(true);
+    setTimeout(() => { setZap(false); go(to); }, 170);
+  };
+  const toggleSound = () => {
+    try { if (!audio.current) audio.current = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+    setSound((v) => !v);
+  };
   const { w, h } = win;
   const scale = Math.max(0.4, Math.min(1.4, (w - 52) / 1388, Math.max(1, (h - 344) / 768)));
   // The content block is centred on wide windows. Put the back arrow (and title) in line with the header lamp instead.
@@ -187,17 +210,27 @@ export default function App() {
     return () => removeEventListener("resize", fit);
   }, []);
 
-  // home: arrow keys + Enter
+  // boot: plays once per session, any key or click skips it
   useEffect(() => {
-    if (scr !== "home") return;
+    if (!boot) return;
+    try { sessionStorage.setItem("cg-booted", "1"); } catch {}
+    const end = () => setBoot(false);
+    const t = setTimeout(end, 1700);
+    addEventListener("keydown", end, { once: true }); addEventListener("pointerdown", end, { once: true });
+    return () => { clearTimeout(t); removeEventListener("keydown", end); removeEventListener("pointerdown", end); };
+  }, [boot]);
+
+  // home: arrow keys + Enter (big card on the left, two small ones stacked on the right)
+  useEffect(() => {
+    if (scr !== "home" || boot) return;
     const k = (e) => {
-      if (e.key === "ArrowRight") setSel((s) => Math.min(2, s + 1));
-      if (e.key === "ArrowLeft") setSel((s) => Math.max(0, s - 1));
-      if (e.key === "Enter") go(["check", "uno_off", "chat"][sel]);
+      const next = { ArrowRight: sel === 0 ? 1 : sel, ArrowLeft: 0, ArrowDown: sel === 1 ? 2 : sel, ArrowUp: sel === 2 ? 1 : sel }[e.key];
+      if (next !== undefined) { e.preventDefault(); pick(next); }
+      if (e.key === "Enter") zapGo(["check", "uno_off", "chat"][sel]);
     };
     addEventListener("keydown", k);
     return () => removeEventListener("keydown", k);
-  }, [scr, sel]);
+  }, [scr, sel, boot, sound]);
 
   // scanning auto-advances
   useEffect(() => {
@@ -297,19 +330,44 @@ export default function App() {
   const screens = {
     home: (
       <Page ask={false}>
+        <svg className="a traces" style={{ left: 0, top: 112 }} width="1440" height="760" viewBox="0 0 1440 760" fill="none" aria-hidden="true">
+          {[
+            "M760 80H880L900 60H1060",
+            "M1060 60h24c0-14 18-14 18 0s18-14 18 0 18-14 18 0 18-14 18 0H1340",
+            "M26 410H70L96 384",
+            "M856 410H876V300",
+            "M26 560H58V300L78 280",
+          ].map((d, i) => (
+            <g key={i}>
+              <path d={d} className="tr" />
+              <path d={d} className="pulse" pathLength="1" style={{ animationDelay: `${i * 0.9}s` }} />
+            </g>
+          ))}
+          {[[880, 80], [1060, 60], [1340, 60], [70, 410], [876, 300], [78, 280]].map(([x, y]) => <circle key={x + "" + y} cx={x} cy={y} r="5" className="pad" />)}
+        </svg>
         <h2 className="a px" style={{ left: 96, top: 170, fontSize: 18, margin: 0 }}>START</h2>
-        <p className="a" style={{ left: 96, top: 256, fontSize: 24, margin: 0 }}>Choose your next step.</p>
-        {[[ICON.cam, "CHECK MY CIRCUIT", "Check values and find problems.", "check"],
-          [ICON.uno, "CONNECT UNO", "Control a real LED from here.", "uno_off"],
-          [ICON.chat, "PLAN A PROJECT", "Get parts and a plan from AI.", "chat"]].map(([ic, t, d, to], i) => (
-          <button key={t} className={"a choice click" + (sel === i ? " sel" : "")} style={{ left: 96 + i * 429, top: 304 }}
-            onMouseEnter={() => setSel(i)} onFocus={() => setSel(i)} onClick={() => go(to)}>
+        <div className="a dlg" style={{ left: 88, top: 228, width: 1264, height: 86 }}>
+          <div style={{ padding: "14px 24px" }}>{!boot && <Type text="Welcome! What are we checking today?" />}</div></div>
+        <button className={"a hero click" + (sel === 0 ? " sel" : "")} style={{ left: 96, top: 342, width: 740, height: 290 }}
+          onMouseEnter={() => pick(0)} onFocus={() => pick(0)} onClick={() => zapGo("check")}>
+          <svg className="current" viewBox="0 0 740 290" preserveAspectRatio="none" aria-hidden="true"><rect x="2" y="2" width="736" height="286" rx="14" pathLength="1" /></svg>
+          <div className="tile big">{ICON.cam}
+            <svg className="sparks" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true">
+              <path d="M18 30l10 6-4 6 10 6" /><path d="M130 22l-8 10 6 3-8 10" /><path d="M128 120l-10-4 2-7-10-3" />
+            </svg></div>
+          <h3>{sel === 0 && "▶ "}CHECK MY CIRCUIT</h3>
+          <p>Find problems before anything breaks.</p>
+        </button>
+        {[[ICON.uno, "CONNECT UNO", "Control a real LED.", "uno_off", 342], [ICON.chat, "PLAN A PROJECT", "Parts and a plan from AI.", "chat", 498]].map(([ic, t, d, to, top], j) => (
+          <button key={t} className={"a side click" + (sel === j + 1 ? " sel" : "")} style={{ left: 876, top, width: 468, height: 134 }}
+            onMouseEnter={() => pick(j + 1)} onFocus={() => pick(j + 1)} onClick={() => zapGo(to)}>
             <div className="tile">{ic}</div>
-            <h3>{t}</h3><p>{d}</p>
+            <div><h3>{sel === j + 1 && "▶ "}{t}</h3><p>{d}</p></div>
           </button>
         ))}
-        <p className="a" style={{ left: 96, top: 690, fontSize: 20, color: "var(--mute)", margin: 0 }}>No circuit yet? Start with a plan.</p>
-        <p className="a" style={{ left: 880, top: 690, width: 464, textAlign: "right", fontSize: 20, color: "var(--mute)", margin: 0 }}>Arrow keys to choose · Enter to start</p>
+        <p className="a" style={{ left: 96, top: 700, fontSize: 20, color: "var(--mute)", margin: 0 }}>No circuit yet? Start with a plan.</p>
+        <p className="a" style={{ left: 700, top: 700, width: 568, textAlign: "right", fontSize: 20, color: "var(--mute)", margin: 0 }}>Arrow keys · Enter</p>
+        <button className="a snd click" style={{ left: 1284, top: 693 }} aria-pressed={sound} onClick={toggleSound}>{sound ? "♪ ON" : "♪ OFF"}</button>
       </Page>
     ),
     chat: (
@@ -324,7 +382,7 @@ export default function App() {
             <button key={s} className="sug click" onClick={() => { setIdea(s); go("plan"); }}>{s}<span>›</span></button>))}
         </div>
         <div className="a px" style={{ left: 784, top: 256, width: 560, height: 560, display: "grid", placeItems: "center", fontSize: 13, color: "var(--mute)", border: "2px dashed var(--mute)", borderRadius: 12 }}>YOUR PLAN</div>
-        
+
       </Page>
     ),
     plan: (
@@ -346,11 +404,11 @@ export default function App() {
             <div key={s} className="row" style={{ height: 48 }}><span style={{ display: "flex", gap: 14, alignItems: "center" }}><span className="num">{i + 1}</span>{s}</span>
               <button className="click" aria-label="Check this step" style={{ width: 48, height: 44, border: "2px solid var(--ink)", borderRadius: 8, background: "#fff" }} onClick={() => go("check")}>{ICON.camS}</button></div>))}
         </div>
-        
+
       </Page>
     ),
     check: (
-      <Page lamp="" back="home" title="CHECK" step={0} action="CHECK CIRCUIT" goDisabled={volErr || !(R > 0)} onGo={() => go("scanning")}>
+      <Page lamp="" back="home" title="CHECK" step={0} action="CHECK CIRCUIT" goDisabled={volErr || !(R >= 0)} onGo={() => go("scanning")}>
         <div className="a card" style={{ left: 96, top: 256, width: 600, height: 520 }}>
                     <span className="a" style={{ left: 32, top: 30, fontSize: 28 }}>Circuit</span>
           <CircuitPick value={ckt} onChange={setCkt} style={{ left: 200, top: 20, width: 368 }} />
@@ -367,10 +425,10 @@ export default function App() {
           <span className="a" style={{ left: 32, top: 370, fontSize: 28, display: "flex", alignItems: "center", gap: 12 }}>LED
             <button className="help click" style={{ position: "static" }} aria-label="About LED" onMouseEnter={() => setTip("LED")} onMouseLeave={() => setTip(null)} onFocus={() => setTip("LED")} onBlur={() => setTip(null)}>?</button></span>
           <div className="a in" style={{ left: 328, top: 352, gap: 12 }}>
-            {ckt === "rgb" ? <span style={{ fontSize: 20, whiteSpace: "nowrap" }}>R 2 · G 3 · B 3 V</span> : <>
+            {ckt === "rgb" ? <span style={{ fontSize: 20, whiteSpace: "nowrap" }}>R 2 · G 2.2 · B 3 V</span> : <>
             <select aria-label="LED color" style={{ fontSize: 26 }} value={led} onChange={(e) => setLed(e.target.value)}>{Object.keys(LEDS).map((c) => <option key={c}>{c}</option>)}</select>
             <span style={{ fontSize: 24, whiteSpace: "nowrap" }}>{Vf} V</span></>}</div>
-          {tip === "LED" && <div className="tip" style={{ left: 72, top: 412 }}><p style={{ margin: 0, fontSize: 24 }}>{ckt === "rgb" ? "RGB LED." : "Pick a color."}</p><p style={{ margin: "8px 0 0", fontSize: 18, color: "var(--mute)" }}>{ckt === "rgb" ? "Red 2 V, green and blue 3 V. One resistor value is checked on each color." : "We set the voltage."}</p></div>}
+          {tip === "LED" && <div className="tip" style={{ left: 72, top: 412 }}><p style={{ margin: 0, fontSize: 24 }}>{ckt === "rgb" ? "RGB LED." : "Pick a color."}</p><p style={{ margin: "8px 0 0", fontSize: 18, color: "var(--mute)" }}>{ckt === "rgb" ? "Red 2 V, green 2.2 V, blue 3 V. One resistor value is checked on each color." : "We set the voltage."}</p></div>}
                   </div>
         <div className="a card" style={{ left: 744, top: 256, width: 600, height: 520 }}>
           <p className="label a" style={{ left: 32, top: 32 }}>PREVIEW</p>
@@ -379,7 +437,7 @@ export default function App() {
           <div className="a circuit-values" style={{ left: 32, top: 440, width: 536 }}>
             <span>POWER <b>{volErr ? "—" : V} V</b></span>
             <span>RESISTOR <b>{R || "—"} Ω</b></span>
-            <span>LED <b>{ckt === "rgb" ? "2·3·3 V" : Vf + " V"}</b></span>
+            <span>LED <b>{ckt === "rgb" ? "2·2.2·3 V" : Vf + " V"}</b></span>
           </div>
                   </div>
       </Page>
@@ -399,10 +457,10 @@ export default function App() {
       <Page lamp={st === "warning" ? "warn" : "issue"} title="FOUND" back="check" step={1} action="TEST FIX" onGo={() => go("result")}>
         <Dex />
         <div className="a flash" />
-        <div className="a dlg" style={{ left: 784, top: 256, width: 560, height: 300 }}>
+        <div className="a dlg" style={{ left: 784, top: 256, width: 560, maxHeight: 460, overflowY: "auto" }}>
           <div><p className="label">WHY?</p>
-            <p style={{ fontSize: 26, margin: "26px 0 14px" }}>{st === "danger" ? "Too much current." : "Too little current."}</p>
-            <p style={{ fontSize: 22, margin: 0 }}>{st === "danger" ? "Bigger resistor → less current." : "Smaller resistor → brighter LED."}</p>
+            <p style={{ fontSize: 22, margin: "20px 0 12px", whiteSpace: "pre-wrap" }}>{res?.recommendation || "No explanation returned."}</p>
+            <p style={{ fontSize: 16, color: "var(--mute)" }}>{res?.explanation_source === "gemini" ? "Gemini explanation · simulation results" : "Circuit advice · simulation results"}</p>
             {res?.ckt === "switch" && <p style={{ fontSize: 18, margin: "12px 0 0", color: "var(--mute)" }}>Checked with the switch closed.</p>}
             {res?.rgb && <p style={{ fontSize: 18, margin: "12px 0 0", color: "var(--mute)" }}>Each color is checked on its own.</p>}
 <span className="caret">▼</span></div></div>
@@ -411,6 +469,11 @@ export default function App() {
     result: (
       <Page lamp={(c || o)?.status === "safe" ? "ok" : "warn"} title="RESULT" back={c ? "found" : "check"} step={2} action="CHECK AGAIN" onGo={() => { if (c) setOhms(String(c.resistance)); go("check"); }}>
         <Dex ok />
+        {!c && <div className="a card" style={{ left: 790, top: 256, width: 554, maxHeight: 460, overflowY: "auto", padding: 24 }}>
+          <p className="label">EXPLANATION</p>
+          <p style={{ fontSize: 22, whiteSpace: "pre-wrap" }}>{res?.recommendation}</p>
+          <p style={{ fontSize: 16, color: "var(--mute)" }}>{res?.explanation_source === "gemini" ? "Gemini explanation · simulation results" : "Circuit advice · simulation results"}</p>
+        </div>}
         {c && <div className="a card next-action rise" style={{ left: 790, top: 256, width: 554, minHeight: 300, padding: 24 }}>
           <p className="label">NEXT · ON YOUR BOARD</p><h3 className="next-title">Try the fix</h3><p className="next-note">Power off before changing parts.</p>
           {(res?.rgb ? rgbSteps : ["Swap in a " + fixR + " Ω resistor", "Check again"]).map((t, i) => (
@@ -433,8 +496,8 @@ export default function App() {
       if (busy) return;
       setBusy(true);
       try {
-        if (ckt === "rgb") await setRgb(on ? { r: false, g: false, b: false } : rgbOn);
-        else if (ckt === "switch" && !on) await followSwitch();
+        if (ckt === "rgb") throw new Error("RGB hardware is not enabled on the verified two-button Uno. Use RGB under Check my circuit.");
+        if (ckt === "switch" && !on) await followSwitch();
         else await sendLed(on ? "off" : "on");
         setUnoErr(""); go(on ? "uno_off" : "uno_on");
       } catch (e) { setUnoErr(e?.message || ""); go("no_uno"); }
@@ -450,7 +513,7 @@ export default function App() {
     const mix = on && any ? `rgb(${rgbOn.r ? 255 : 0},${rgbOn.g ? 255 : 0},${rgbOn.b ? 255 : 0})` : "#fff";
     const lbl = { stroke: "none", fill: "#26332C", fontSize: 13, fontFamily: "Press Start 2P" };
     const status = ckt === "switch" && on
-      ? (sw == null ? "Waiting for the switch…" : sw ? "Switch closed · LED on" : "Switch open · LED off")
+      ? (sw == null ? "Waiting for the switch…" : sw ? "Button latch · LED on" : "Button latch · LED off")
       : on ? "Uno replied OK" : "Uno ready";
     return (
       <Page lamp={lit || (on && ckt === "rgb" && any) ? "on" : ""} back="home" title="UNO" action={busy ? "SENDING…" : on ? "TURN OFF" : "TURN ON"} goDisabled={busy} onGo={press}>
@@ -470,13 +533,13 @@ export default function App() {
             <rect x="304" y="114" width="84" height="38" rx="6" fill="#F6D64B" />
             {lit && <circle cx="498" cy="194" r="60" fill="#F6D64B" opacity=".5" stroke="none" />}
             <path d="M476 175H520L498 213Z" fill={lit ? "#F6D64B" : "#fff"} />
-            <g stroke="none" fill="#26332C" fontSize="13" fontFamily="Press Start 2P"><text x="205" y="118">PIN 8</text><text x="205" y="270">GND</text><text x="535" y="232">LED</text></g>
+            <g stroke="none" fill="#26332C" fontSize="13" fontFamily="Press Start 2P"><text x="205" y="118">PIN 5</text><text x="205" y="270">GND</text><text x="535" y="232">LED</text></g>
             <text x="308" y="185" stroke="none" fill="#26332C" fontSize="26" fontFamily="Pixelify Sans">220 Ω</text>
             {ckt === "switch" && <>
               <path d="M190 250H300M380 250H430V213" />
               <path d={sw ? "M300 250H380" : "M300 250L368 222"} strokeWidth="4" />
               <circle cx="300" cy="250" r="5" fill="#26332C" /><circle cx="380" cy="250" r="5" fill="#26332C" />
-              <text x="205" y="238" {...lbl}>PIN 2</text></>}
+              <text x="205" y="238" {...lbl}>ON 9 / OFF 8</text></>}
           </>}
         </svg>
         <CircuitPick value={ckt} onChange={setCkt} disabled={on || busy} title={on ? "Turn it off to change circuit" : ""} style={{ left: 822, top: 256, width: 522 }} />
@@ -488,14 +551,13 @@ export default function App() {
           {ckt === "rgb" && <div style={{ display: "flex", gap: 14 }}>
             {RGB.map((ch) => <button key={ch.k} className={"chip click" + (rgbOn[ch.k] ? " on" : "")} aria-pressed={rgbOn[ch.k]} onClick={() => toggle(ch.k)}><i style={{ background: ch.color }} />{ch.name}</button>)}
           </div>}
-          <button className="btn sec click" style={{ width: 522, height: 77, marginTop: ckt === "rgb" ? 40 : 110, fontSize: 18 }} onClick={() => go("uno_off")}>RECONNECT</button>
         </div>
       </Page>
     );
   }
   function NoUno() {
     return (
-      <Page lamp="issue" back="home" title="NO UNO" action="RECONNECT" onGo={() => go("uno_off")}>
+      <Page lamp="issue" back="home" title="NO UNO" action="TRY AGAIN" onGo={() => go("uno_off")}>
         <p className="a px" style={{ left: 96, top: 256, width: 640, fontSize: 22, lineHeight: 1.6, margin: 0 }}>Check the USB cable.</p>
         <p className="a" style={{ left: 96, top: 320, fontSize: 26, margin: 0 }}>Close Serial Monitor.</p>
         {unoErr && <p className="a" style={{ left: 96, top: 380, width: 760, fontSize: 20, margin: 0, color: "var(--mute)" }}>{unoErr}</p>}
@@ -506,19 +568,21 @@ export default function App() {
   return (
     <Go.Provider value={go}>
       <Slots.Provider value={{ head, dock, backX }}>
-        <div className="app">
+        <div className={"app" + (boot ? " booting" : "")}>
           <svg className="shell" width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" stroke="#26332C">
             <path d={shellOuter} fill="#F6D64B" strokeWidth="4" />
             <path d={`M26 90H${w - 26}V${h - 88}L${w - 75} ${h - 26}H28L26 90Z`} fill="#FBFAF1" stroke="none" />
             <path d={`M14 90H112L130 76H${w - 16}`} strokeWidth="2" />
-            <path d={`M42 ${h - 56}H82M42 ${h - 48}H74M42 ${h - 40}H66`} strokeWidth="3" />
             <path d={`M${w - 52} ${h - 116}V${h - 80}L${w - 88} ${h - 44}`} strokeWidth="2" />
+            {boot && <path d={shellOuter} className="boot-trace" pathLength="1" />}
           </svg>
           <div className="scroller">
             <div className="canvas" style={{ width: 1388 * scale, height: 768 * scale + 100 }}>
               <div className="stage" style={{ transform: `scale(${scale}) translate(-26px,-112px)` }}>{screens[scr]}</div>
             </div>
           </div>
+          {boot && <div className="boot-dim" aria-hidden="true" />}
+          {zap && <div className="zapflash" aria-hidden="true" />}
           <div className="layer" ref={setHead} />
           <div className="layer" ref={setDock} />
         </div>
