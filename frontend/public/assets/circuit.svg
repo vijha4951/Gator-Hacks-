@@ -1,0 +1,18 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="590" height="280" viewBox="0 0 590 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Frame" clip-path="url(#clip0_0_10)">
+<path id="Vector" d="M574 0H16C7.16344 0 0 7.16344 0 16V264C0 272.837 7.16344 280 16 280H574C582.837 280 590 272.837 590 264V16C590 7.16344 582.837 0 574 0Z" fill="#F3F4F0"/>
+<path id="Vector_2" d="M80 110V50H240M340 50H510V110M510 170V230H80V170" stroke-width="4" stroke="#26352A"/>
+<path id="Vector_3" d="M80 170C96.5685 170 110 156.569 110 140C110 123.431 96.5685 110 80 110C63.4315 110 50 123.431 50 140C50 156.569 63.4315 170 80 170Z" fill="white" stroke-width="3" stroke="#26352A"/>
+<g id="Vector_4">
+<path d="M66 140H94ZM80 126V154Z" fill="black"/>
+<path d="M66 140H94M80 126V154" stroke-width="3" stroke="#26352A"/>
+</g>
+<path id="Vector_5" d="M332 34H248C243.582 34 240 37.5817 240 42V58C240 62.4183 243.582 66 248 66H332C336.418 66 340 62.4183 340 58V42C340 37.5817 336.418 34 332 34Z" fill="#F6D64B" stroke-width="3" stroke="#26352A"/>
+<path id="Vector_6" d="M488 170H532M488 110H532L510 160L488 110Z" stroke-width="3" stroke="#26352A"/>
+</g>
+<defs>
+<clipPath id="clip0_0_10">
+<rect width="590" height="280" fill="white"/>
+</clipPath>
+</defs>
+</svg>

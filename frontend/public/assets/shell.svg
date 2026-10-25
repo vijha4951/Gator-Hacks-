@@ -1,0 +1,12 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="1440" height="1024" viewBox="0 0 1440 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Electric shell / desktop">
+<path id="Vector" d="M28 12H1260L1280 30H1380L1428 70V944L1372 1012H28C17.3333 1012 12 1006.67 12 996V28C12 17.3333 17.3333 12 28 12Z" fill="#F6D64B" stroke-width="4" stroke="#26332C"/>
+<path id="Vector_2" d="M26 90H1414V936L1365 998H28L26 90Z" fill="#FBFAF1"/>
+<path id="Vector_3" d="M14 90H112L130 76H1424" stroke-width="2" stroke="#26332C"/>
+<g id="Vector_4">
+<path d="M42 968H82ZM42 976H74ZM42 984H66Z" fill="black"/>
+<path d="M42 968H82M42 976H74M42 984H66" stroke-width="3" stroke="#26332C"/>
+</g>
+<path id="Vector_5" d="M1388 908V944L1352 980" stroke-width="2" stroke="#26332C"/>
+</g>
+</svg>

@@ -1,0 +1,7 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="360" height="24" viewBox="0 0 360 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Circuit trace / quiet lower rail">
+<path id="Vector" d="M8 17H260M260 17H286L298 5H352M260 17L252 9H8M260 17L264 21H314" stroke-width="1.5" stroke="#26332C" stroke-opacity="0.35"/>
+<path id="Vector_2" d="M8 17C8 18.6569 6.65685 20 5 20C3.34315 20 2 18.6569 2 17C2 15.3431 3.34315 14 5 14C6.65685 14 8 15.3431 8 17Z" stroke="#26332C" stroke-opacity="0.5"/>
+<path id="Vector_3" d="M355 8C356.657 8 358 6.65685 358 5C358 3.34315 356.657 2 355 2C353.343 2 352 3.34315 352 5C352 6.65685 353.343 8 355 8Z" fill="#9DDDEB" stroke="#26332C"/>
+</g>
+</svg>

@@ -1,0 +1,11 @@
+PROJECT: LED BLINK
+
+MATERIALS
+- Arduino Uno + USB cable
+- 1 × LED (5 mm, any color)
+- 1 × 220 Ω resistor
+- Breadboard
+- 2 × jumper wires (male-to-male)
+
+ALSO NEEDED
+- A computer with the free Arduino IDE installed
