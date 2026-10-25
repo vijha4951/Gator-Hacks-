@@ -23,6 +23,28 @@ from app.schemas import CircuitRequest, PlanResponse, Scenario
 
 logger = logging.getLogger(__name__)
 
+def _strip_unsupported_schema_keys(node: Any) -> Any:
+    """Remove JSON-schema keys the Gemini response_schema API does not accept.
+
+    Currently drops ``additionalProperties`` (emitted by Pydantic models that
+    set ``extra="forbid"``), which Gemini rejects with 400 INVALID_ARGUMENT.
+    """
+    if isinstance(node, dict):
+        return {
+            key: _strip_unsupported_schema_keys(value)
+            for key, value in node.items()
+            if key != "additionalProperties"
+        }
+    if isinstance(node, list):
+        return [_strip_unsupported_schema_keys(item) for item in node]
+    return node
+
+
+def _gemini_response_schema(model: type) -> dict[str, Any]:
+    """Build a Gemini-safe JSON schema from a Pydantic model."""
+    return _strip_unsupported_schema_keys(model.model_json_schema())
+
+
 # ---------------------------------------------------------------------------
 # System prompt — injected once per call, not stored across requests.
 # ---------------------------------------------------------------------------
@@ -229,7 +251,13 @@ class GeminiClient:
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
-                response_schema=PlanResponse,
+                # Pass a cleaned JSON schema, not the Pydantic model directly:
+                # PlanResponse uses extra="forbid", which emits
+                # "additionalProperties": false. Gemini's response_schema rejects
+                # that key with 400 INVALID_ARGUMENT, so strip it. Strict
+                # extra-forbidding still happens when the planner validates the
+                # returned JSON against PlanResponse.
+                response_schema=_gemini_response_schema(PlanResponse),
             ),
         )
         return (response.text or "").strip()

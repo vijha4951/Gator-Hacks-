@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     # Timeouts (seconds)
     ai_timeout_seconds: float = 10.0   # Gemini explanation; falls back to rule-based text
     sim_timeout_seconds: float = 20.0  # per simulator call; failure -> HTTP 502
-    plan_timeout_seconds: float = 45.0 # project planning; failure -> HTTP 503
+    plan_timeout_seconds: float = 90.0 # project planning; large schema + reference, slower under model load; failure -> HTTP 503
 
 
 settings = Settings()
