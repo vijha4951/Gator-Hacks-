@@ -1,2 +1,1 @@
-# Read me will have project des 
-# add something pls 
+Note: the Vercel-hosted site is only the frontend. For the deployed site to work, a running local FastAPI backend and an active PhysBox/Volt session must still be available; the UI cannot function by itself without the local API and PhysBox.
